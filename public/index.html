@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Netmaze — Tank Battle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ── HOME SCREEN ─────────────────────────────────────────────────────── -->
+  <div id="screen-home" class="screen active">
+    <div class="card">
+      <h1 class="logo">NETMAZE</h1>
+      <p class="tagline">Real-time multiplayer tank battle</p>
+      <div class="form-group">
+        <label for="name-input">Your Name</label>
+        <input id="name-input" type="text" maxlength="20" placeholder="Enter name..." autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="game-id-input">Game ID (leave blank to create)</label>
+        <input id="game-id-input" type="text" maxlength="8" placeholder="e.g. A1B2C3D4" autocomplete="off">
+      </div>
+      <div class="btn-row">
+        <button id="create-btn" class="btn btn-primary">Create Game</button>
+        <button id="join-btn" class="btn btn-secondary">Join Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOBBY SCREEN ────────────────────────────────────────────────────── -->
+  <div id="screen-lobby" class="screen">
+    <div class="card lobby-card">
+      <h2>Game Lobby</h2>
+      <div class="lobby-info">
+        <span>Game ID: <strong id="lobby-game-id">—</strong></span>
+        <button id="copy-link-btn" class="btn btn-small">Copy Link</button>
+      </div>
+
+      <!-- Main body: players left, teams right -->
+      <div class="lobby-body">
+        <div class="lobby-section">
+          <h3>Players</h3>
+          <ul id="lobby-player-list"></ul>
+        </div>
+        <div id="teams-roster" class="lobby-section" style="display:none"></div>
+      </div>
+
+      <!-- Host-only controls pinned to bottom -->
+      <div id="host-controls" class="host-bar" style="display:none">
+        <div class="form-group" style="margin:0; min-width:140px">
+          <label for="mode-select">Mode</label>
+          <select id="mode-select">
+            <option value="ffa">Free For All</option>
+            <option value="teams">Teams</option>
+          </select>
+        </div>
+        <button id="add-team-btn" class="btn btn-small" style="display:none">+ Team</button>
+        <button id="start-btn" class="btn btn-primary" style="margin-left:auto">Start Game</button>
+      </div>
+
+      <div id="lobby-waiting-msg" style="display:none">
+        <p class="muted" style="text-align:center; padding:0.5rem 0">Waiting for host to start…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GAME SCREEN ─────────────────────────────────────────────────────── -->
+  <div id="screen-game" class="screen">
+    <div class="game-wrap">
+      <canvas id="game-canvas" width="800" height="576"></canvas>
+      <div id="hud-overlay">
+        <div id="kill-feed"></div>
+        <div id="weapon-display">Weapon: <span id="weapon-name">Basic Laser</span></div>
+      </div>
+    </div>
+    <div id="score-panel">
+      <div class="score-panel-header">
+        <span>Scores</span>
+      </div>
+      <div id="score-panel-body"></div>
+      <div id="end-game-btn-wrap" style="display:none; margin-top:auto; padding-top:1rem">
+        <button id="end-game-btn" class="btn btn-danger" style="width:100%">End Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ENDED SCREEN ────────────────────────────────────────────────────── -->
+  <div id="screen-ended" class="screen">
+    <div class="card ended-card">
+      <h2>Game Over</h2>
+      <div id="final-scores"></div>
+      <div class="btn-row" style="margin-top:1.5rem">
+        <button id="play-again-btn" class="btn btn-primary" style="display:none">Play Again</button>
+        <button id="leave-btn" class="btn btn-secondary">Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GLOBAL OVERLAYS ─────────────────────────────────────────────────── -->
+  <div id="error-toast" class="toast" style="display:none"></div>
+  <div id="reconnect-banner" class="banner" style="display:none">Reconnecting…</div>
+
+  <script src="game.js"></script>
+</body>
+</html>
