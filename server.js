@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -491,7 +492,7 @@ function handleJoin(ws, payload) {
       return;
     }
 
-    const playerId = crypto.randomUUID();
+    const playerId = randomUUID();
     const player = createPlayer(playerId, ws, trimmedName);
     game.players.set(playerId, player);
     wsToPlayer.set(ws, { gameId, playerId });
@@ -499,8 +500,8 @@ function handleJoin(ws, payload) {
     broadcastLobbyUpdate(game);
   } else {
     // Create new game
-    const newGameId = crypto.randomUUID().slice(0, 8).toUpperCase();
-    const playerId = crypto.randomUUID();
+    const newGameId = randomUUID().slice(0, 8).toUpperCase();
+    const playerId = randomUUID();
     const player = createPlayer(playerId, ws, trimmedName);
     player.isHost = true;
 
