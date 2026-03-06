@@ -14,7 +14,7 @@ const CONFIG = {
   LASER_SPEED: 300, ROCKET_SPEED: 900,
   LASER_COOLDOWN: 300, TRIPLE_COOLDOWN: 400, ROCKET_COOLDOWN: 500,
   RESPAWN_DELAY: 3000, SPAWN_PROTECTION: 2000,
-  ARMOR_DURATION: 5000, CLOAK_DURATION: 8000,
+  ARMOR_DURATION: 5000, CLOAK_DURATION: 15000,
   POWERUP_INTERVAL: 10000, POWERUP_LIFETIME: 20000, MAX_POWERUPS: 5,
   ROCK_DENSITY: 0.05, TREE_DENSITY: 0.05,
   PORT: process.env.PORT || 3001,
@@ -290,6 +290,7 @@ function respawnPlayer(game, player) {
   player.alive = true;
   player.weapon = 'laser';
   player.lastFiredAt = 0;
+  player.moving = false;
   player.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
   player.cloakUntil = 0;
   player.armorUntil = 0;
@@ -420,7 +421,7 @@ function gameTick(game) {
   const dt = CONFIG.TICK_MS / 1000;
 
   for (const [, player] of game.players) {
-    if (player.connected && player.alive) {
+    if (player.connected && player.alive && player.moving) {
       movePlayer(game, player, dt);
     }
   }
@@ -539,6 +540,7 @@ function createPlayer(id, ws, name) {
     alive: false,
     x: 0, y: 0,
     dir: 'E',
+    moving: false,
     weapon: 'laser',
     lastFiredAt: 0,
     spawnProtectionUntil: 0,
@@ -586,6 +588,7 @@ function handleStartGame(ws, game, player) {
     p.x = spawn.x;
     p.y = spawn.y;
     p.alive = true;
+    p.moving = false;
     p.weapon = 'laser';
     p.score = 0;
     p.lastFiredAt = 0;
@@ -620,8 +623,9 @@ function handleStartGame(ws, game, player) {
 function handleInput(ws, game, player, payload) {
   if (game.phase !== 'playing') return;
   if (!player.alive) return;
-  const { dir, firing } = payload;
+  const { dir, firing, moving } = payload;
   if (dir && ['N', 'S', 'E', 'W'].includes(dir)) player.dir = dir;
+  if (typeof moving === 'boolean') player.moving = moving;
   if (firing) fireWeapon(game, player);
 }
 

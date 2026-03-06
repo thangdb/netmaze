@@ -32,7 +32,7 @@ let ws = null, wsOpen = false, reconnectAttempts = 0;
 let myId = null, myName = '', gameId = null, isHost = false;
 let currentPhase = 'lobby'; // local tracking
 let gameMap = null;
-let localDir = 'E', firingHeld = false;
+let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
 let hostId = null;
 
@@ -410,11 +410,11 @@ function renderStaticMap() {
         const x = c * TILE_SIZE + TILE_SIZE / 2;
         const y = r * TILE_SIZE + TILE_SIZE / 2;
         treeCtx.beginPath();
-        treeCtx.arc(x, y, 14, 0, Math.PI * 2);
+        treeCtx.arc(x, y, 28, 0, Math.PI * 2);
         treeCtx.fillStyle = '#1a5c20';
         treeCtx.fill();
         treeCtx.beginPath();
-        treeCtx.arc(x - 3, y - 3, 10, 0, Math.PI * 2);
+        treeCtx.arc(x - 6, y - 6, 20, 0, Math.PI * 2);
         treeCtx.fillStyle = '#226b28';
         treeCtx.fill();
       }
@@ -596,7 +596,7 @@ function stopRenderLoop() {
 function startInputLoop() {
   if (inputInterval) return;
   inputInterval = setInterval(() => {
-    sendWS({ type: 'input', dir: localDir, firing: firingHeld });
+    sendWS({ type: 'input', dir: localDir, firing: firingHeld, moving: isMoving });
   }, 50);
 }
 
@@ -742,8 +742,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (currentPhase !== 'playing') return;
     const dir = DIR_KEYS[e.code] || DIR_KEYS[e.key];
-    if (dir) { localDir = dir; e.preventDefault(); }
+    if (dir) { localDir = dir; isMoving = true; e.preventDefault(); }
     if (e.code === 'Space') { firingHeld = true; e.preventDefault(); }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { isMoving = false; e.preventDefault(); }
   });
 
   document.addEventListener('keyup', (e) => {
