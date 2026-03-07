@@ -618,6 +618,7 @@ function initGameScreen() {
   treeCtx = treeCanvas.getContext('2d');
 
   document.getElementById('end-game-btn-wrap').style.display = isHost ? '' : 'none';
+  document.getElementById('exit-game-btn-wrap').style.display = isHost ? 'none' : '';
   document.getElementById('instr-divider').style.display = isHost ? '' : 'none';
   const lateJoinWrap = document.getElementById('late-join-wrap');
   lateJoinWrap.style.display = isHost ? '' : 'none';
@@ -1294,6 +1295,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game
   document.getElementById('end-game-btn').addEventListener('click', () => {
     if (confirm('End the game?')) sendWS({ type: 'end_game' });
+  });
+
+  document.getElementById('exit-game-btn').addEventListener('click', () => {
+    if (confirm('Exit the game?')) {
+      stopRenderLoop(); stopInputLoop(); cleanupRTC();
+      if (ws) { ws.close(); ws = null; wsOpen = false; }
+      showScreen('home');
+    }
   });
 
   document.getElementById('late-join-toggle').addEventListener('change', (e) => {
