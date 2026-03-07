@@ -468,6 +468,8 @@ function sendSetup() {
 // ─── Browse Screen ────────────────────────────────────────────────────────
 function showBrowseScreen() {
   showScreen('browse');
+  const urlGameId = new URLSearchParams(location.search).get('game');
+  if (urlGameId) document.getElementById('browse-game-id-input').value = urlGameId;
   document.getElementById('games-list').innerHTML = '';
   document.getElementById('games-list-empty').style.display = '';
   if (!wsOpen) {
@@ -1074,12 +1076,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Home screen
   const nameInput = document.getElementById('name-input');
-  const gameIdInput = document.getElementById('game-id-input');
 
-  // Pre-fill game ID from URL
   const urlParams = new URLSearchParams(location.search);
   const urlGameId = urlParams.get('game');
-  if (urlGameId) gameIdInput.value = urlGameId;
 
   document.getElementById('create-btn').addEventListener('click', () => {
     myName = nameInput.value.trim();
@@ -1087,15 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
     connectWS(() => sendWS({ type: 'join', name: myName }));
   });
 
-  document.getElementById('join-btn').addEventListener('click', () => {
-    myName = nameInput.value.trim();
-    const gid = gameIdInput.value.trim().toUpperCase();
-    if (!myName) { showError('Please enter your name'); return; }
-    if (!gid) { showError('Please enter a game ID'); return; }
-    connectWS(() => sendWS({ type: 'join', name: myName, gameId: gid }));
-  });
-
-  document.getElementById('browse-btn').addEventListener('click', () => {
+  document.getElementById('enter-lobby-btn').addEventListener('click', () => {
     myName = nameInput.value.trim();
     if (!myName) { showError('Please enter your name first'); return; }
     showBrowseScreen();
@@ -1106,12 +1097,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (wsOpen) sendWS({ type: 'list_games' });
   });
 
-  // If URL has game ID, auto-select join flow
-  if (urlGameId) {
-    document.getElementById('game-id-input').focus();
-  } else {
-    nameInput.focus();
-  }
+  document.getElementById('browse-join-btn').addEventListener('click', () => {
+    const gid = document.getElementById('browse-game-id-input').value.trim().toUpperCase();
+    const pwd = document.getElementById('browse-password-input').value;
+    if (!gid) { showError('Please enter a game ID'); return; }
+    connectAndJoin(gid, pwd);
+  });
+
+  document.getElementById('browse-game-id-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('browse-join-btn').click();
+  });
+  document.getElementById('browse-password-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('browse-join-btn').click();
+  });
+
+  nameInput.focus();
 
   // Lobby
   document.getElementById('copy-link-btn').addEventListener('click', () => {

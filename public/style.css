@@ -194,8 +194,9 @@ select option { background: var(--bg-card); }
 .small-input:focus { border-color: var(--accent2); }
 
 /* Browse screen */
-.browse-card { width: 560px; max-height: 80vh; overflow-y: auto; }
-.browse-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.browse-card { width: 600px; max-height: 85vh; overflow-y: auto; }
+.browse-join-row { display: flex; align-items: flex-end; gap: 0.6rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.browse-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
 .game-entry {
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.6rem 0.75rem; border: 1px solid var(--border);

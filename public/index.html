@@ -16,16 +16,10 @@
         <label for="name-input">Your Name</label>
         <input id="name-input" type="text" maxlength="20" placeholder="Enter name..." autocomplete="off">
       </div>
-      <div class="form-group">
-        <label for="game-id-input">Game ID (leave blank to create)</label>
-        <input id="game-id-input" type="text" maxlength="8" placeholder="e.g. A1B2C3D4" autocomplete="off">
-      </div>
       <div class="btn-row">
         <button id="create-btn" class="btn btn-primary">Create Game</button>
-        <button id="join-btn" class="btn btn-secondary">Join Game</button>
+        <button id="enter-lobby-btn" class="btn btn-secondary">Enter Lobby</button>
       </div>
-      <div class="home-divider"></div>
-      <button id="browse-btn" class="btn btn-secondary" style="width:100%">Browse Public Games</button>
     </div>
   </div>
 
@@ -92,12 +86,29 @@
   <!-- ── BROWSE SCREEN ─────────────────────────────────────────────────── -->
   <div id="screen-browse" class="screen">
     <div class="card browse-card">
-      <div class="browse-header">
-        <h2 style="margin:0">Public Games</h2>
+      <h2 style="margin:0 0 0.75rem">Enter Lobby</h2>
+
+      <!-- Direct join by ID -->
+      <div class="browse-join-row">
+        <div class="form-group" style="margin:0; flex:1">
+          <label for="browse-game-id-input">Game ID</label>
+          <input id="browse-game-id-input" type="text" maxlength="8" placeholder="e.g. A1B2C3D4" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0; flex:1">
+          <label for="browse-password-input">Password <span class="muted" style="font-weight:normal">(optional)</span></label>
+          <input id="browse-password-input" type="password" placeholder="Leave blank if none" autocomplete="off">
+        </div>
+        <button id="browse-join-btn" class="btn btn-primary" style="align-self:flex-end">Join</button>
+      </div>
+
+      <!-- Public games -->
+      <div class="browse-header" style="margin-top:1rem">
+        <span class="muted" style="font-size:0.85rem; font-weight:600; letter-spacing:0.04em">PUBLIC GAMES</span>
         <button id="refresh-games-btn" class="btn btn-secondary btn-small">Refresh</button>
       </div>
       <div id="games-list-empty" class="muted" style="text-align:center; padding:2rem 0; display:none">No public games available</div>
       <div id="games-list"></div>
+
       <div class="btn-row" style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border)">
         <button id="back-to-home-btn" class="btn btn-secondary">← Back</button>
       </div>
