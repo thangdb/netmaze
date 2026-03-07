@@ -176,6 +176,36 @@ select option { background: var(--bg-card); }
 /* Align +Team button baseline with the select input */
 .host-bar .btn-small { align-self: flex-end; height: 36px; display: flex; align-items: center; }
 
+/* Density sliders */
+.density-group label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.3rem; }
+.density-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+.density-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--accent2);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.density-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--accent2);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
 /* ── Game Screen ──────────────────────────────────────────────────────── */
 #screen-game.active {
   display: flex;

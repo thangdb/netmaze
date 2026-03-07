@@ -35,6 +35,7 @@ let currentPhase = 'lobby'; // local tracking
 let gameMap = null;
 let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
+let rockDensity = 2, treeDensity = 2; // percentages, synced from server
 let hostId = null;
 
 // Canvas layers
@@ -141,6 +142,8 @@ function handleServerMessage(msg) {
       isHost = myId === msg.hostId;
       mode = msg.mode;
       teams = msg.teams || [];
+      if (typeof msg.rockDensity === 'number') rockDensity = Math.round(msg.rockDensity * 100);
+      if (typeof msg.treeDensity === 'number') treeDensity = Math.round(msg.treeDensity * 100);
       renderLobby(msg.players, msg.hostId, msg.mode, msg.teams);
       break;
 
@@ -344,6 +347,10 @@ function renderLobby(players, hId, gameMode, gameTeams) {
     waitingMsg.style.display = 'none';
     document.getElementById('mode-select').value = gameMode;
     addTeamBtn.style.display = gameMode === 'teams' ? '' : 'none';
+    document.getElementById('rock-density').value = rockDensity;
+    document.getElementById('rock-density-val').textContent = rockDensity + '%';
+    document.getElementById('tree-density').value = treeDensity;
+    document.getElementById('tree-density-val').textContent = treeDensity + '%';
 
     // Validate start conditions
     let canStart = true;
@@ -366,7 +373,7 @@ function renderLobby(players, hId, gameMode, gameTeams) {
 
 
 function sendSetup() {
-  sendWS({ type: 'setup', mode, teams });
+  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100 });
 }
 
 // ─── Game Screen Initialization ───────────────────────────────────────────
@@ -711,6 +718,18 @@ document.addEventListener('DOMContentLoaded', () => {
     mode = e.target.value;
     sendSetup();
     document.getElementById('add-team-btn').style.display = mode === 'teams' ? '' : 'none';
+  });
+
+  document.getElementById('rock-density').addEventListener('input', (e) => {
+    rockDensity = parseInt(e.target.value);
+    document.getElementById('rock-density-val').textContent = rockDensity + '%';
+    sendSetup();
+  });
+
+  document.getElementById('tree-density').addEventListener('input', (e) => {
+    treeDensity = parseInt(e.target.value);
+    document.getElementById('tree-density-val').textContent = treeDensity + '%';
+    sendSetup();
   });
 
   document.getElementById('add-team-btn').addEventListener('click', () => {

@@ -16,7 +16,7 @@ const CONFIG = {
   RESPAWN_DELAY: 3000, SPAWN_PROTECTION: 2000,
   ARMOR_DURATION: 20000, CLOAK_DURATION: 20000,
   POWERUP_INTERVAL: 10000, POWERUP_LIFETIME: 20000, MAX_POWERUPS: 5,
-  ROCK_DENSITY: 0.05, TREE_DENSITY: 0.05,
+  ROCK_DENSITY: 0.02, TREE_DENSITY: 0.02,
   PORT: process.env.PORT || 3001,
 };
 
@@ -27,8 +27,8 @@ const games = new Map(); // gameId → GameState
 const wsToPlayer = new Map(); // ws → {gameId, playerId}
 
 // ─── MAP GENERATION ────────────────────────────────────────────────────────
-function generateMap() {
-  const { MAP_COLS: cols, MAP_ROWS: rows, ROCK_DENSITY, TREE_DENSITY } = CONFIG;
+function generateMap(rockDensity = CONFIG.ROCK_DENSITY, treeDensity = CONFIG.TREE_DENSITY) {
+  const { MAP_COLS: cols, MAP_ROWS: rows } = CONFIG;
   const tiles = new Uint8Array(cols * rows);
 
   // Corner spawn zones (3×3 at each corner) — always blank
@@ -550,7 +550,9 @@ function handleJoin(ws, payload) {
       powerupTimer: null,
       nextProjectileId: 1,
       nextPowerupId: 1,
-      allowLateJoin: false,
+      allowLateJoin: true,
+      rockDensity: CONFIG.ROCK_DENSITY,
+      treeDensity: CONFIG.TREE_DENSITY,
     };
 
     games.set(newGameId, game);
@@ -586,6 +588,8 @@ function handleSetup(ws, game, player, payload) {
   if (game.phase !== 'lobby') return;
   if (payload.mode) game.mode = payload.mode;
   if (payload.teams) game.teams = payload.teams;
+  if (typeof payload.rockDensity === 'number') game.rockDensity = Math.max(0, Math.min(0.5, payload.rockDensity));
+  if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.5, payload.treeDensity));
   broadcastLobbyUpdate(game);
 }
 
@@ -605,7 +609,7 @@ function handleStartGame(ws, game, player) {
   }
 
   game.phase = 'playing';
-  game.map = generateMap();
+  game.map = generateMap(game.rockDensity, game.treeDensity);
 
   let idx = 0;
   const usedSpawns = [];
@@ -686,7 +690,7 @@ function handlePlayAgain(ws, game, player) {
   game.powerups = [];
   game.nextProjectileId = 1;
   game.nextPowerupId = 1;
-  game.allowLateJoin = false;
+  game.allowLateJoin = true;
   game.map = null;
 
   for (const [, p] of game.players) {
@@ -768,6 +772,8 @@ function broadcastLobbyUpdate(game) {
     mode: game.mode,
     teams: game.teams,
     allowLateJoin: game.allowLateJoin,
+    rockDensity: game.rockDensity,
+    treeDensity: game.treeDensity,
   });
 }
 
