@@ -5,6 +5,22 @@ const { WebSocketServer } = require('ws');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
+// ─── WebRTC (optional — node-datachannel) ────────────────────────────────
+let RTCPeerConnection = null;
+try {
+  ({ RTCPeerConnection } = require('node-datachannel/polyfill'));
+  console.log('WebRTC enabled via node-datachannel');
+} catch { console.log('node-datachannel not available — WebSocket only'); }
+
+const ICE_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  ...(process.env.TURN_URL ? [{
+    urls: process.env.TURN_URL,
+    username: process.env.TURN_USERNAME || '',
+    credential: process.env.TURN_CREDENTIAL || '',
+  }] : []),
+];
+
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const CONFIG = {
   TILE_SIZE: 32, MAP_COLS: 25, MAP_ROWS: 18,
@@ -40,7 +56,7 @@ function generateMap(rockDensity = CONFIG.ROCK_DENSITY, treeDensity = CONFIG.TRE
   // Place rocks
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (!isSpawn(c, r) && Math.random() < ROCK_DENSITY) {
+      if (!isSpawn(c, r) && Math.random() < rockDensity) {
         tiles[r * cols + c] = TILE_ROCK;
       }
     }
@@ -87,7 +103,7 @@ function generateMap(rockDensity = CONFIG.ROCK_DENSITY, treeDensity = CONFIG.TRE
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
-      if (tiles[idx] === TILE_BLANK && !isSpawn(c, r) && Math.random() < TREE_DENSITY) {
+      if (tiles[idx] === TILE_BLANK && !isSpawn(c, r) && Math.random() < treeDensity) {
         tiles[idx] = TILE_TREE;
       }
     }
@@ -594,7 +610,47 @@ function createPlayer(id, ws, name) {
     respawnTimer: null,
     disconnectTimer: null,
     isHost: false,
+    rtcPeer: null,
+    rtcChannel: null,
   };
+}
+
+async function handleRtcOffer(ws, game, player, payload) {
+  if (!RTCPeerConnection) return;
+  try {
+    if (player.rtcPeer) {
+      try { player.rtcPeer.close(); } catch {}
+      player.rtcPeer = null;
+      player.rtcChannel = null;
+    }
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    player.rtcPeer = pc;
+    pc.ondatachannel = ({ channel }) => {
+      channel.onopen = () => { player.rtcChannel = channel; };
+      channel.onclose = channel.onerror = () => {
+        if (player.rtcChannel === channel) player.rtcChannel = null;
+      };
+      channel.onmessage = ({ data }) => {
+        let msg; try { msg = JSON.parse(data); } catch { return; }
+        if (msg.type === 'input') handleInput(player.ws, game, player, msg);
+      };
+    };
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) send(player, { type: 'rtc_ice', candidate });
+    };
+    await pc.setRemoteDescription(payload.offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send(player, { type: 'rtc_answer', answer: pc.localDescription });
+  } catch (e) {
+    console.error('rtc_offer error:', e.message);
+  }
+}
+
+function handleRtcIce(ws, game, player, payload) {
+  if (player.rtcPeer && payload.candidate) {
+    player.rtcPeer.addIceCandidate(payload.candidate).catch(() => {});
+  }
 }
 
 function handleSetup(ws, game, player, payload) {
@@ -733,6 +789,11 @@ function handleDisconnect(ws) {
 
   player.connected = false;
   player.ws = null;
+  if (player.rtcPeer) {
+    try { player.rtcPeer.close(); } catch {}
+    player.rtcPeer = null;
+    player.rtcChannel = null;
+  }
 
   // Transfer host if needed
   if (player.id === game.hostId) {
@@ -823,9 +884,11 @@ function broadcast(game, msg, filter) {
 }
 
 function send(player, msg) {
-  if (player.ws && player.ws.readyState === 1) {
-    player.ws.send(JSON.stringify(msg));
+  const data = JSON.stringify(msg);
+  if (msg.type === 'state' && player.rtcChannel && player.rtcChannel.readyState === 'open') {
+    try { player.rtcChannel.send(data); return; } catch {}
   }
+  if (player.ws && player.ws.readyState === 1) player.ws.send(data);
 }
 
 // ─── EXPRESS + WS SERVER ──────────────────────────────────────────────────
@@ -862,6 +925,8 @@ wss.on('connection', (ws) => {
       case 'play_again':        handlePlayAgain(ws, game, player); break;
       case 'choose_team':       handleChooseTeam(ws, game, player, payload); break;
       case 'toggle_late_join':  handleToggleLateJoin(ws, game, player, payload); break;
+      case 'rtc_offer':         handleRtcOffer(ws, game, player, payload); break;
+      case 'rtc_ice':           handleRtcIce(ws, game, player, payload); break;
     }
   });
 

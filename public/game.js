@@ -66,6 +66,9 @@ let inputInterval = null;
 // rAF handle
 let rafId = null;
 
+// WebRTC
+let rtcPeer = null, rtcChannel = null, rtcCandidateQueue = [], rtcReady = false;
+
 // ─── Screen Management ────────────────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -80,6 +83,48 @@ function showError(msg) {
   el.style.display = 'block';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+// ─── WebRTC ───────────────────────────────────────────────────────────────
+function initRTC() {
+  if (typeof RTCPeerConnection === 'undefined') return;
+  cleanupRTC();
+  try {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }],
+    });
+    rtcPeer = pc;
+    const dc = pc.createDataChannel('game', { ordered: false, maxRetransmits: 0 });
+    rtcChannel = dc;
+    dc.onopen = () => { rtcReady = true; };
+    dc.onclose = dc.onerror = () => { rtcReady = false; rtcChannel = null; };
+    dc.onmessage = ({ data }) => {
+      let msg; try { msg = JSON.parse(data); } catch { return; }
+      handleServerMessage(msg);
+    };
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) sendWS({ type: 'rtc_ice', candidate });
+    };
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => sendWS({ type: 'rtc_offer', offer: rtcPeer.localDescription }))
+      .catch(() => {});
+  } catch { cleanupRTC(); }
+}
+
+function cleanupRTC() {
+  rtcReady = false;
+  rtcCandidateQueue = [];
+  if (rtcChannel) { try { rtcChannel.close(); } catch {} rtcChannel = null; }
+  if (rtcPeer) { try { rtcPeer.close(); } catch {} rtcPeer = null; }
+}
+
+function sendFast(msg) {
+  const data = JSON.stringify(msg);
+  if (rtcReady && rtcChannel && rtcChannel.readyState === 'open') {
+    try { rtcChannel.send(data); return; } catch {}
+  }
+  if (ws && ws.readyState === 1) ws.send(data);
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────
@@ -166,6 +211,7 @@ function handleServerMessage(msg) {
       showScreen('game');
       startRenderLoop();
       startInputLoop();
+      initRTC();
       break;
 
 
@@ -181,6 +227,7 @@ function handleServerMessage(msg) {
         showScreen('game');
         startRenderLoop();
         startInputLoop();
+        initRTC();
       }
       document.getElementById('reconnect-banner').style.display = 'none';
       break;
@@ -200,6 +247,7 @@ function handleServerMessage(msg) {
       currentPhase = 'ended';
       stopInputLoop();
       stopRenderLoop();
+      cleanupRTC();
       showEndedScreen(msg.scores);
       showScreen('ended');
       break;
@@ -222,6 +270,26 @@ function handleServerMessage(msg) {
       break;
 
     case 'pong':
+      break;
+
+    case 'rtc_answer':
+      if (rtcPeer) {
+        rtcPeer.setRemoteDescription(msg.answer)
+          .then(() => {
+            for (const c of rtcCandidateQueue) rtcPeer.addIceCandidate(c).catch(() => {});
+            rtcCandidateQueue = [];
+          })
+          .catch(() => {});
+      }
+      break;
+
+    case 'rtc_ice':
+      if (!msg.candidate) break;
+      if (rtcPeer && rtcPeer.remoteDescription) {
+        rtcPeer.addIceCandidate(msg.candidate).catch(() => {});
+      } else {
+        rtcCandidateQueue.push(msg.candidate);
+      }
       break;
   }
 }
@@ -724,7 +792,7 @@ function stopRenderLoop() {
 function startInputLoop() {
   if (inputInterval) return;
   inputInterval = setInterval(() => {
-    sendWS({ type: 'input', dir: localDir, firing: firingHeld, moving: isMoving });
+    sendFast({ type: 'input', dir: localDir, firing: firingHeld, moving: isMoving });
   }, 50);
 }
 
