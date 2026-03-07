@@ -399,7 +399,7 @@ function buildSnapshot(game, forPlayer) {
     type: 'state',
     players,
     projectiles: game.projectiles.map(pr => ({
-      id: pr.id, x: pr.x, y: pr.y, weapon: pr.weapon, size: pr.size,
+      id: pr.id, x: pr.x, y: pr.y, dx: pr.dx, dy: pr.dy, weapon: pr.weapon, size: pr.size,
     })),
     powerups: game.powerups.map(pu => ({
       id: pu.id, type: pu.type, x: pu.x, y: pu.y,
