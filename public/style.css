@@ -168,13 +168,49 @@ select option { background: var(--bg-card); }
 
 /* Host bar at bottom of lobby */
 .host-bar {
-  display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
   border-top: 1px solid var(--border); padding-top: 0.9rem; margin-top: 0.25rem;
 }
 .host-bar .form-group { margin: 0; display: flex; flex-direction: column; }
 .host-bar label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; }
-/* Align +Team button baseline with the select input */
-.host-bar .btn-small { align-self: flex-end; height: 36px; display: flex; align-items: center; }
+.host-bar .btn-small { height: 36px; display: flex; align-items: center; }
+
+/* Visibility bar (public/private toggle) */
+.visibility-bar {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.55rem 0; border-top: 1px solid var(--border); margin-top: 0.25rem;
+}
+.small-input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 0.4rem 0.65rem; font-size: 0.85rem; outline: none;
+  transition: border-color 0.2s; width: 170px;
+}
+.small-input:focus { border-color: var(--accent2); }
+
+/* Browse screen */
+.browse-card { width: 560px; max-height: 80vh; overflow-y: auto; }
+.browse-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.game-entry {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 0.4rem;
+  background: var(--bg); transition: border-color 0.15s;
+}
+.game-entry:hover { border-color: var(--accent2); }
+.game-entry-info { flex: 1; min-width: 0; }
+.game-entry-host { font-weight: 600; font-size: 0.9rem; display: block; color: var(--text); }
+.game-entry-meta { font-size: 0.78rem; color: var(--muted); margin-top: 1px; display: block; }
+.game-entry-playing { color: var(--success); }
+.game-entry-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.lock-badge { font-size: 0.75rem; color: var(--muted); }
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
 
 /* Density sliders */
 .density-group label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.3rem; }

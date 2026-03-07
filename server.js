@@ -457,10 +457,22 @@ function handleJoin(ws, payload) {
       return;
     }
 
-    // Check for reconnect by name
+    // Check for reconnect by name (reconnects bypass password)
     let existingPlayer = null;
     for (const [, p] of game.players) {
       if (p.name === trimmedName) { existingPlayer = p; break; }
+    }
+
+    if (!existingPlayer && game.password) {
+      // New join — check password
+      if (!payload.password) {
+        ws.send(JSON.stringify({ type: 'password_required', gameId }));
+        return;
+      }
+      if (payload.password !== game.password) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Incorrect password' }));
+        return;
+      }
     }
 
     if (existingPlayer) {
@@ -553,6 +565,8 @@ function handleJoin(ws, payload) {
       allowLateJoin: true,
       rockDensity: CONFIG.ROCK_DENSITY,
       treeDensity: CONFIG.TREE_DENSITY,
+      isPublic: true,
+      password: '',
     };
 
     games.set(newGameId, game);
@@ -590,6 +604,8 @@ function handleSetup(ws, game, player, payload) {
   if (payload.teams) game.teams = payload.teams;
   if (typeof payload.rockDensity === 'number') game.rockDensity = Math.max(0, Math.min(0.5, payload.rockDensity));
   if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.5, payload.treeDensity));
+  if (typeof payload.isPublic === 'boolean') game.isPublic = payload.isPublic;
+  if (typeof payload.password === 'string') game.password = payload.password.slice(0, 30);
   broadcastLobbyUpdate(game);
 }
 
@@ -755,6 +771,23 @@ function handleChooseTeam(ws, game, player, payload) {
   broadcastLobbyUpdate(game);
 }
 
+function handleListGames(ws) {
+  const list = [];
+  for (const [, game] of games) {
+    if (!game.isPublic || game.phase === 'ended') continue;
+    const host = game.players.get(game.hostId);
+    list.push({
+      gameId: game.id,
+      hostName: host ? host.name : 'Unknown',
+      playerCount: [...game.players.values()].filter(p => p.connected).length,
+      mode: game.mode,
+      phase: game.phase,
+      hasPassword: !!game.password,
+    });
+  }
+  ws.send(JSON.stringify({ type: 'games_list', games: list }));
+}
+
 function handleToggleLateJoin(ws, game, player, payload) {
   if (player.id !== game.hostId) return;
   game.allowLateJoin = !!payload.value;
@@ -774,6 +807,8 @@ function broadcastLobbyUpdate(game) {
     allowLateJoin: game.allowLateJoin,
     rockDensity: game.rockDensity,
     treeDensity: game.treeDensity,
+    isPublic: game.isPublic,
+    hasPassword: !!game.password,
   });
 }
 
@@ -809,10 +844,8 @@ wss.on('connection', (ws) => {
     if (type === 'ping') { ws.send(JSON.stringify({ type: 'pong' })); return; }
 
     const info = wsToPlayer.get(ws);
-    if (type === 'join') {
-      handleJoin(ws, payload);
-      return;
-    }
+    if (type === 'join') { handleJoin(ws, payload); return; }
+    if (type === 'list_games') { handleListGames(ws); return; }
 
     if (!info) return;
     const { gameId, playerId } = info;

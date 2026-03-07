@@ -24,6 +24,7 @@
         <button id="create-btn" class="btn btn-primary">Create Game</button>
         <button id="join-btn" class="btn btn-secondary">Join Game</button>
       </div>
+      <button id="browse-btn" class="btn btn-secondary" style="width:100%; margin-top:0.5rem">Browse Public Games</button>
     </div>
   </div>
 
@@ -43,6 +44,21 @@
           <ul id="lobby-player-list"></ul>
         </div>
         <div id="teams-roster" class="lobby-section" style="display:none"></div>
+      </div>
+
+      <!-- Visibility controls (host only) -->
+      <div id="visibility-row" class="visibility-bar" style="display:none">
+        <label class="toggle-row" style="flex-shrink:0">
+          <span>Public</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="game-public-toggle" checked>
+            <span class="toggle-knob"></span>
+          </label>
+        </label>
+        <span id="visibility-hint" class="muted" style="font-size:0.78rem; flex:1">Visible in browse list</span>
+        <div id="game-password-wrap" style="display:none">
+          <input id="game-password-input" type="password" class="small-input" placeholder="Password (optional)" maxlength="30" autocomplete="new-password">
+        </div>
       </div>
 
       <!-- Host-only controls pinned to bottom -->
@@ -68,6 +84,21 @@
 
       <div id="lobby-waiting-msg" style="display:none">
         <p class="muted" style="text-align:center; padding:0.5rem 0">Waiting for host to start…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BROWSE SCREEN ─────────────────────────────────────────────────── -->
+  <div id="screen-browse" class="screen">
+    <div class="card browse-card">
+      <div class="browse-header">
+        <h2 style="margin:0">Public Games</h2>
+        <button id="refresh-games-btn" class="btn btn-secondary btn-small">Refresh</button>
+      </div>
+      <div id="games-list-empty" class="muted" style="text-align:center; padding:2rem 0; display:none">No public games available</div>
+      <div id="games-list"></div>
+      <div class="btn-row" style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border)">
+        <button id="back-to-home-btn" class="btn btn-secondary">← Back</button>
       </div>
     </div>
   </div>
@@ -127,6 +158,22 @@
   </div>
 
   <!-- ── GLOBAL OVERLAYS ─────────────────────────────────────────────────── -->
+  <!-- ── PASSWORD MODAL ─────────────────────────────────────────────────── -->
+  <div id="password-modal" class="modal-overlay" style="display:none">
+    <div class="card" style="width:340px; max-width:90vw">
+      <h2>Password Required</h2>
+      <p class="muted" style="margin-bottom:1rem; font-size:0.88rem">This game is password protected.</p>
+      <div class="form-group">
+        <label for="join-password-input">Password</label>
+        <input id="join-password-input" type="password" placeholder="Enter password..." autocomplete="off">
+      </div>
+      <div class="btn-row">
+        <button id="password-cancel-btn" class="btn btn-secondary">Cancel</button>
+        <button id="password-submit-btn" class="btn btn-primary">Join</button>
+      </div>
+    </div>
+  </div>
+
   <div id="error-toast" class="toast" style="display:none"></div>
   <div id="reconnect-banner" class="banner" style="display:none">Reconnecting…</div>
 

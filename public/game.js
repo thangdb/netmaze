@@ -36,7 +36,13 @@ let gameMap = null;
 let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
 let rockDensity = 2, treeDensity = 2; // percentages, synced from server
+let gameIsPublic = true, gamePassword = '';
 let hostId = null;
+
+// Browse / password flow
+let pendingJoinGameId = null;
+let browseRefreshTimer = null;
+let passwordInputTimer = null;
 
 // Canvas layers
 let canvas, ctx;
@@ -144,6 +150,7 @@ function handleServerMessage(msg) {
       teams = msg.teams || [];
       if (typeof msg.rockDensity === 'number') rockDensity = Math.round(msg.rockDensity * 100);
       if (typeof msg.treeDensity === 'number') treeDensity = Math.round(msg.treeDensity * 100);
+      if (typeof msg.isPublic === 'boolean') gameIsPublic = msg.isPublic;
       renderLobby(msg.players, msg.hostId, msg.mode, msg.teams);
       break;
 
@@ -195,6 +202,14 @@ function handleServerMessage(msg) {
       stopRenderLoop();
       showEndedScreen(msg.scores);
       showScreen('ended');
+      break;
+
+    case 'games_list':
+      populateGamesList(msg.games);
+      break;
+
+    case 'password_required':
+      showPasswordModal(msg.gameId);
       break;
 
     case 'late_join_changed':
@@ -339,11 +354,13 @@ function renderLobby(players, hId, gameMode, gameTeams) {
 
   // ── Host controls / waiting msg ──
   const hostControls = document.getElementById('host-controls');
+  const visRow = document.getElementById('visibility-row');
   const waitingMsg = document.getElementById('lobby-waiting-msg');
   const addTeamBtn = document.getElementById('add-team-btn');
   const startBtn = document.getElementById('start-btn');
   if (isHost) {
     hostControls.style.display = '';
+    visRow.style.display = '';
     waitingMsg.style.display = 'none';
     document.getElementById('mode-select').value = gameMode;
     addTeamBtn.style.display = gameMode === 'teams' ? '' : 'none';
@@ -351,6 +368,9 @@ function renderLobby(players, hId, gameMode, gameTeams) {
     document.getElementById('rock-density-val').textContent = rockDensity + '%';
     document.getElementById('tree-density').value = treeDensity;
     document.getElementById('tree-density-val').textContent = treeDensity + '%';
+    document.getElementById('game-public-toggle').checked = gameIsPublic;
+    document.getElementById('visibility-hint').textContent = gameIsPublic ? 'Visible in browse list' : 'Private — share Game ID to invite';
+    document.getElementById('game-password-wrap').style.display = gameIsPublic ? 'none' : '';
 
     // Validate start conditions
     let canStart = true;
@@ -367,13 +387,104 @@ function renderLobby(players, hId, gameMode, gameTeams) {
     startBtn.title = startTitle;
   } else {
     hostControls.style.display = 'none';
+    visRow.style.display = 'none';
     waitingMsg.style.display = '';
   }
 }
 
 
 function sendSetup() {
-  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100 });
+  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100, isPublic: gameIsPublic, password: gamePassword });
+}
+
+// ─── Browse Screen ────────────────────────────────────────────────────────
+function showBrowseScreen() {
+  showScreen('browse');
+  document.getElementById('games-list').innerHTML = '';
+  document.getElementById('games-list-empty').style.display = '';
+  if (!wsOpen) {
+    connectWS(() => sendWS({ type: 'list_games' }));
+  } else {
+    sendWS({ type: 'list_games' });
+  }
+  browseRefreshTimer = setInterval(() => { if (wsOpen) sendWS({ type: 'list_games' }); }, 5000);
+}
+
+function hideBrowseScreen() {
+  clearInterval(browseRefreshTimer); browseRefreshTimer = null;
+  showScreen('home');
+}
+
+function populateGamesList(gamesList) {
+  const container = document.getElementById('games-list');
+  const empty = document.getElementById('games-list-empty');
+  container.innerHTML = '';
+  if (!gamesList || gamesList.length === 0) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  for (const g of gamesList) {
+    const entry = document.createElement('div');
+    entry.className = 'game-entry';
+
+    const info = document.createElement('div');
+    info.className = 'game-entry-info';
+    const hostSpan = document.createElement('span');
+    hostSpan.className = 'game-entry-host';
+    hostSpan.textContent = `${g.hostName}'s game`;
+    const metaSpan = document.createElement('span');
+    metaSpan.className = 'game-entry-meta';
+    const modeLabel = g.mode === 'teams' ? 'Teams' : 'FFA';
+    const phaseHtml = g.phase === 'playing'
+      ? `<span class="game-entry-playing">Playing</span>`
+      : 'In Lobby';
+    metaSpan.innerHTML = `${modeLabel} &middot; ${g.playerCount} player${g.playerCount !== 1 ? 's' : ''} &middot; ${phaseHtml}`;
+    info.appendChild(hostSpan);
+    info.appendChild(metaSpan);
+
+    const actions = document.createElement('div');
+    actions.className = 'game-entry-actions';
+    if (g.hasPassword) {
+      const lock = document.createElement('span');
+      lock.className = 'lock-badge'; lock.title = 'Password protected'; lock.textContent = '🔒';
+      actions.appendChild(lock);
+    }
+    const joinBtn = document.createElement('button');
+    joinBtn.className = 'btn btn-primary btn-small';
+    joinBtn.textContent = 'Join';
+    joinBtn.addEventListener('click', () => {
+      if (g.hasPassword) { showPasswordModal(g.gameId); }
+      else { connectAndJoin(g.gameId, ''); }
+    });
+    actions.appendChild(joinBtn);
+
+    entry.appendChild(info);
+    entry.appendChild(actions);
+    container.appendChild(entry);
+  }
+}
+
+function connectAndJoin(gid, password) {
+  const doJoin = () => sendWS({ type: 'join', name: myName, gameId: gid, password: password || undefined });
+  if (!wsOpen) { connectWS(doJoin); } else { doJoin(); }
+}
+
+// ─── Password Modal ───────────────────────────────────────────────────────
+function showPasswordModal(gameId) {
+  pendingJoinGameId = gameId;
+  document.getElementById('join-password-input').value = '';
+  document.getElementById('password-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('join-password-input').focus(), 50);
+}
+
+function hidePasswordModal() {
+  document.getElementById('password-modal').style.display = 'none';
+  pendingJoinGameId = null;
+}
+
+function submitPasswordJoin() {
+  if (!pendingJoinGameId) return;
+  const password = document.getElementById('join-password-input').value;
+  connectAndJoin(pendingJoinGameId, password);
+  hidePasswordModal();
 }
 
 // ─── Game Screen Initialization ───────────────────────────────────────────
@@ -699,6 +810,17 @@ document.addEventListener('DOMContentLoaded', () => {
     connectWS(() => sendWS({ type: 'join', name: myName, gameId: gid }));
   });
 
+  document.getElementById('browse-btn').addEventListener('click', () => {
+    myName = nameInput.value.trim();
+    if (!myName) { showError('Please enter your name first'); return; }
+    showBrowseScreen();
+  });
+
+  document.getElementById('back-to-home-btn').addEventListener('click', hideBrowseScreen);
+  document.getElementById('refresh-games-btn').addEventListener('click', () => {
+    if (wsOpen) sendWS({ type: 'list_games' });
+  });
+
   // If URL has game ID, auto-select join flow
   if (urlGameId) {
     document.getElementById('game-id-input').focus();
@@ -718,6 +840,27 @@ document.addEventListener('DOMContentLoaded', () => {
     mode = e.target.value;
     sendSetup();
     document.getElementById('add-team-btn').style.display = mode === 'teams' ? '' : 'none';
+  });
+
+  document.getElementById('game-public-toggle').addEventListener('change', (e) => {
+    gameIsPublic = e.target.checked;
+    if (gameIsPublic) { gamePassword = ''; document.getElementById('game-password-input').value = ''; }
+    document.getElementById('game-password-wrap').style.display = gameIsPublic ? 'none' : '';
+    document.getElementById('visibility-hint').textContent = gameIsPublic ? 'Visible in browse list' : 'Private — share Game ID to invite';
+    sendSetup();
+  });
+
+  document.getElementById('game-password-input').addEventListener('input', (e) => {
+    gamePassword = e.target.value;
+    clearTimeout(passwordInputTimer);
+    passwordInputTimer = setTimeout(sendSetup, 600);
+  });
+
+  document.getElementById('password-submit-btn').addEventListener('click', submitPasswordJoin);
+  document.getElementById('password-cancel-btn').addEventListener('click', hidePasswordModal);
+  document.getElementById('join-password-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitPasswordJoin();
+    if (e.key === 'Escape') hidePasswordModal();
   });
 
   document.getElementById('rock-density').addEventListener('input', (e) => {
