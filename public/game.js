@@ -613,36 +613,36 @@ function renderStaticMap() {
 
         // Drop shadow — offset down-right to give 2.5D elevation feel
         tc.fillStyle = 'rgba(0,0,0,0.28)';
-        tc.beginPath(); tc.ellipse(x + 5, y + 8, 18, 11, 0, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.ellipse(x + 10, y + 16, 36, 22, 0, 0, Math.PI * 2); tc.fill();
 
         // Canopy outer ring (dark rim)
-        tc.fillStyle = '#1c5610'; tc.strokeStyle = '#0e3008'; tc.lineWidth = 1.5;
-        tc.beginPath(); tc.arc(x, y, 18, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        tc.fillStyle = '#1c5610'; tc.strokeStyle = '#0e3008'; tc.lineWidth = 2;
+        tc.beginPath(); tc.arc(x, y, 36, 0, Math.PI * 2); tc.fill(); tc.stroke();
 
         // Main canopy
         tc.fillStyle = '#2e8c1a';
-        tc.beginPath(); tc.arc(x, y - 1, 15, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x, y - 2, 30, 0, Math.PI * 2); tc.fill();
 
         // Light side (sun from upper-left)
         tc.fillStyle = '#42b424';
-        tc.beginPath(); tc.arc(x - 4, y - 5, 11, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x - 8, y - 10, 22, 0, Math.PI * 2); tc.fill();
 
         // Highlight dome
         tc.fillStyle = '#6cd836';
-        tc.beginPath(); tc.arc(x - 6, y - 8, 6, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x - 12, y - 16, 12, 0, Math.PI * 2); tc.fill();
 
         // Specular glint
         tc.fillStyle = 'rgba(210,255,170,0.50)';
-        tc.beginPath(); tc.arc(x - 8, y - 11, 3, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x - 16, y - 22, 6, 0, Math.PI * 2); tc.fill();
 
         // Shadow recesses in foliage
         tc.fillStyle = 'rgba(0,35,0,0.22)';
-        tc.beginPath(); tc.arc(x + 9, y + 4, 7, 0, Math.PI * 2); tc.fill();
-        tc.beginPath(); tc.arc(x - 7, y + 9, 5, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x + 18, y + 8, 14, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x - 14, y + 18, 10, 0, Math.PI * 2); tc.fill();
 
         // Trunk stub (visible at the south base in 2.5D)
-        tc.fillStyle = '#5a3010'; tc.strokeStyle = '#3a1e08'; tc.lineWidth = 1;
-        tc.beginPath(); tc.ellipse(x, y + 16, 3, 2, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        tc.fillStyle = '#5a3010'; tc.strokeStyle = '#3a1e08'; tc.lineWidth = 1.5;
+        tc.beginPath(); tc.ellipse(x, y + 32, 6, 4, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
       }
     }
   }
@@ -907,7 +907,7 @@ function renderFrame() {
     if (pr.weapon === 'rocket') {
       // Draw rocket sprite aligned to travel direction
       const angle = Math.atan2(pr.dy, pr.dx) + Math.PI / 2;
-      const scale = pr.size / 20;
+      const scale = pr.size / 10;
       ctx.save();
       ctx.translate(pr.x, pr.y);
       ctx.rotate(angle);
