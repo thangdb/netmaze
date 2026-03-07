@@ -452,11 +452,11 @@ function gameTick(game) {
 // ─── WEBSOCKET HANDLERS ────────────────────────────────────────────────────
 function handleJoin(ws, payload) {
   const { name, gameId } = payload;
-  if (!name || typeof name !== 'string' || !name.trim()) {
-    ws.send(JSON.stringify({ type: 'error', message: 'Name is required' }));
+  const trimmedName = (typeof name === 'string' ? name.trim() : '');
+  if (trimmedName.length < 4 || trimmedName.length > 15 || !/^[\x20-\x7E]+$/.test(trimmedName)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Name must be 4–15 ASCII characters' }));
     return;
   }
-  const trimmedName = name.trim().slice(0, 20);
 
   if (gameId) {
     // Join existing game

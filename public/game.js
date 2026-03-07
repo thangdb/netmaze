@@ -1131,15 +1131,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(location.search);
   const urlGameId = urlParams.get('game');
 
+  function validateName(name) {
+    if (name.length < 4) return 'Name must be at least 4 characters';
+    if (name.length > 15) return 'Name must be at most 15 characters';
+    if (!/^[\x20-\x7E]+$/.test(name)) return 'Name must contain only ASCII characters';
+    return null;
+  }
+
   document.getElementById('create-btn').addEventListener('click', () => {
     myName = nameInput.value.trim();
-    if (!myName) { showError('Please enter your name'); return; }
+    const err = validateName(myName);
+    if (err) { showError(err); return; }
     connectWS(() => sendWS({ type: 'join', name: myName }));
   });
 
   document.getElementById('enter-lobby-btn').addEventListener('click', () => {
     myName = nameInput.value.trim();
-    if (!myName) { showError('Please enter your name first'); return; }
+    const err = validateName(myName);
+    if (err) { showError(err); return; }
     showBrowseScreen();
   });
 
