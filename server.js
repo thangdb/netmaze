@@ -283,7 +283,11 @@ function killPlayer(game, killerId, victim) {
 
   // Award score to killer
   const killer = game.players.get(killerId);
-  if (killer) killer.score++;
+  if (killer) {
+    killer.score++;
+    const ats = game.allTimeScores.get(killerId);
+    if (ats) ats.score = killer.score;
+  }
 
   // Broadcast kill event
   const killerName = killer ? killer.name : 'Unknown';
@@ -398,6 +402,9 @@ function buildSnapshot(game, forPlayer) {
   return {
     type: 'state',
     players,
+    endType: game.endType,
+    scoreLimit: game.endType === 'score' ? game.scoreLimit : null,
+    timeLeft: game.endType === 'time' ? Math.max(0, game.startedAt + game.timeLimitMs - Date.now()) : null,
     projectiles: game.projectiles.map(pr => ({
       id: pr.id, x: pr.x, y: pr.y, dx: pr.dx, dy: pr.dy, weapon: pr.weapon, size: pr.size,
     })),
@@ -409,19 +416,22 @@ function buildSnapshot(game, forPlayer) {
 }
 
 function buildScores(game) {
+  // Use allTimeScores so disconnected players are still included
+  const source = game.allTimeScores && game.allTimeScores.size > 0
+    ? game.allTimeScores
+    : new Map([...game.players.entries()].map(([id, p]) => [id, { name: p.name, score: p.score, teamIndex: p.teamIndex }]));
+
   if (game.mode === 'ffa') {
     const list = [];
-    for (const [, p] of game.players) {
-      list.push({ id: p.id, name: p.name, score: p.score });
-    }
+    for (const [id, s] of source) list.push({ id, name: s.name, score: s.score });
     return list.sort((a, b) => b.score - a.score);
   }
   // Teams mode
   const teamTotals = game.teams.map((t, i) => ({ ...t, index: i, total: 0, players: [] }));
-  for (const [, p] of game.players) {
-    if (p.teamIndex >= 0 && p.teamIndex < teamTotals.length) {
-      teamTotals[p.teamIndex].total += p.score;
-      teamTotals[p.teamIndex].players.push({ id: p.id, name: p.name, score: p.score });
+  for (const [id, s] of source) {
+    if (s.teamIndex >= 0 && s.teamIndex < teamTotals.length) {
+      teamTotals[s.teamIndex].total += s.score;
+      teamTotals[s.teamIndex].players.push({ id, name: s.name, score: s.score });
     }
   }
   teamTotals.sort((a, b) => b.total - a.total);
@@ -429,6 +439,29 @@ function buildScores(game) {
 }
 
 // ─── GAME TICK ────────────────────────────────────────────────────────────
+function checkEndCondition(game) {
+  if (game.endType === 'time') {
+    if (Date.now() >= game.startedAt + game.timeLimitMs) {
+      endGame(game, 'time_limit'); return true;
+    }
+  } else if (game.endType === 'score') {
+    if (game.mode === 'ffa') {
+      for (const [, p] of game.players) {
+        if (p.score >= game.scoreLimit) { endGame(game, 'score_limit'); return true; }
+      }
+    } else {
+      const teamTotals = new Map();
+      for (const [, p] of game.players) {
+        if (p.teamIndex >= 0) teamTotals.set(p.teamIndex, (teamTotals.get(p.teamIndex) || 0) + p.score);
+      }
+      for (const [, total] of teamTotals) {
+        if (total >= game.scoreLimit) { endGame(game, 'score_limit'); return true; }
+      }
+    }
+  }
+  return false;
+}
+
 function gameTick(game) {
   if (game.phase !== 'playing') return;
   const dt = CONFIG.TICK_MS / 1000;
@@ -441,6 +474,7 @@ function gameTick(game) {
 
   moveProjectiles(game, dt);
   checkPowerupPickups(game);
+  if (checkEndCondition(game)) return;
 
   for (const [, player] of game.players) {
     if (player.connected) {
@@ -530,6 +564,7 @@ function handleJoin(ws, payload) {
       player.alive = true;
       player.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
       game.players.set(playerId, player);
+      game.allTimeScores.set(playerId, { name: trimmedName, score: 0, teamIndex: player.teamIndex });
       wsToPlayer.set(ws, { gameId, playerId });
       ws.send(JSON.stringify({ type: 'game_joined', gameId, playerId }));
       ws.send(JSON.stringify({
@@ -580,6 +615,11 @@ function handleJoin(ws, payload) {
       treeDensity: CONFIG.TREE_DENSITY,
       isPublic: true,
       password: '',
+      endType: 'unlimited', // 'unlimited' | 'time' | 'score'
+      timeLimitMs: 10 * 60 * 1000,
+      scoreLimit: 30,
+      startedAt: null,
+      allTimeScores: new Map(), // playerId → {name, score, teamIndex}
     };
 
     games.set(newGameId, game);
@@ -659,6 +699,9 @@ function handleSetup(ws, game, player, payload) {
   if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.5, payload.treeDensity));
   if (typeof payload.isPublic === 'boolean') game.isPublic = payload.isPublic;
   if (typeof payload.password === 'string') game.password = payload.password.slice(0, 30);
+  if (['unlimited','time','score'].includes(payload.endType)) game.endType = payload.endType;
+  if (typeof payload.timeLimitMs === 'number') game.timeLimitMs = Math.max(60000, Math.min(3600000, payload.timeLimitMs));
+  if (typeof payload.scoreLimit === 'number') game.scoreLimit = Math.max(1, Math.min(9999, Math.round(payload.scoreLimit)));
   broadcastLobbyUpdate(game);
 }
 
@@ -679,6 +722,16 @@ function handleStartGame(ws, game, player) {
 
   game.phase = 'playing';
   game.map = generateMap(game.rockDensity, game.treeDensity);
+  game.startedAt = Date.now();
+  game.allTimeScores = new Map();
+
+  // For score mode with teams, default scoreLimit = 10 × largest team size
+  if (game.endType === 'score' && game.mode === 'teams') {
+    const connected = [...game.players.values()].filter(p => p.connected);
+    const teamSizes = game.teams.map((_, i) => connected.filter(p => p.teamIndex === i).length);
+    const maxTeam = Math.max(...teamSizes, 1);
+    if (game.scoreLimit === 30) game.scoreLimit = 10 * maxTeam; // only override default
+  }
 
   let idx = 0;
   const usedSpawns = [];
@@ -707,6 +760,7 @@ function handleStartGame(ws, game, player) {
     } else {
       p.teamIndex = -1;
     }
+    game.allTimeScores.set(p.id, { name: p.name, score: 0, teamIndex: p.teamIndex });
   }
 
   const mapPayload = { tiles: Array.from(game.map.tiles), cols: game.map.cols, rows: game.map.rows };
@@ -867,6 +921,9 @@ function broadcastLobbyUpdate(game) {
     treeDensity: game.treeDensity,
     isPublic: game.isPublic,
     hasPassword: !!game.password,
+    endType: game.endType,
+    timeLimitMs: game.timeLimitMs,
+    scoreLimit: game.scoreLimit,
   });
 }
 

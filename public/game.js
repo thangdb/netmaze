@@ -37,6 +37,7 @@ let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
 let rockDensity = 2, treeDensity = 2; // percentages, synced from server
 let gameIsPublic = true, gamePassword = '';
+let endType = 'unlimited', timeLimitMs = 10 * 60 * 1000, scoreLimit = 30;
 let hostId = null;
 
 // Browse / password flow
@@ -196,6 +197,9 @@ function handleServerMessage(msg) {
       if (typeof msg.rockDensity === 'number') rockDensity = Math.round(msg.rockDensity * 100);
       if (typeof msg.treeDensity === 'number') treeDensity = Math.round(msg.treeDensity * 100);
       if (typeof msg.isPublic === 'boolean') gameIsPublic = msg.isPublic;
+      if (msg.endType) endType = msg.endType;
+      if (typeof msg.timeLimitMs === 'number') timeLimitMs = msg.timeLimitMs;
+      if (typeof msg.scoreLimit === 'number') scoreLimit = msg.scoreLimit;
       renderLobby(msg.players, msg.hostId, msg.mode, msg.teams);
       break;
 
@@ -307,6 +311,28 @@ function applySnapshot(snap) {
     if (myWeapon !== me.weapon) {
       myWeapon = me.weapon;
       document.getElementById('weapon-name').textContent = wname;
+    }
+  }
+
+  // Update game-limit HUD
+  const hud = document.getElementById('game-limit-display');
+  if (hud) {
+    if (snap.endType === 'time' && snap.timeLeft != null) {
+      const secs = Math.ceil(snap.timeLeft / 1000);
+      const m = Math.floor(secs / 60), s = secs % 60;
+      hud.textContent = `⏱ ${m}:${String(s).padStart(2,'0')}`;
+      hud.style.display = '';
+    } else if (snap.endType === 'score' && snap.scoreLimit != null) {
+      let best = 0;
+      if (mode === 'ffa') {
+        best = renderScores.length ? renderScores[0].score : 0;
+      } else {
+        best = renderScores.length ? renderScores[0].total : 0;
+      }
+      hud.textContent = `🎯 ${best} / ${snap.scoreLimit}`;
+      hud.style.display = '';
+    } else {
+      hud.style.display = 'none';
     }
   }
 }
@@ -436,6 +462,8 @@ function renderLobby(players, hId, gameMode, gameTeams) {
     document.getElementById('rock-density-val').textContent = rockDensity + '%';
     document.getElementById('tree-density').value = treeDensity;
     document.getElementById('tree-density-val').textContent = treeDensity + '%';
+    document.getElementById('end-type-select').value = endType;
+    updateEndValueUI();
     document.getElementById('game-public-toggle').checked = gameIsPublic;
     document.getElementById('visibility-hint').textContent = gameIsPublic ? 'Visible in browse list' : 'Private — share Game ID to invite';
     document.getElementById('game-password-wrap').style.display = gameIsPublic ? 'none' : '';
@@ -462,7 +490,26 @@ function renderLobby(players, hId, gameMode, gameTeams) {
 
 
 function sendSetup() {
-  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100, isPublic: gameIsPublic, password: gamePassword });
+  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100, isPublic: gameIsPublic, password: gamePassword, endType, timeLimitMs, scoreLimit });
+}
+
+function updateEndValueUI() {
+  const wrap = document.getElementById('end-value-wrap');
+  const label = document.getElementById('end-value-label');
+  const input = document.getElementById('end-value-input');
+  if (endType === 'unlimited') {
+    wrap.style.display = 'none';
+  } else if (endType === 'time') {
+    wrap.style.display = '';
+    label.textContent = 'Minutes';
+    input.min = 1; input.max = 60; input.step = 1;
+    input.value = Math.round(timeLimitMs / 60000);
+  } else {
+    wrap.style.display = '';
+    label.textContent = 'Score limit';
+    input.min = 1; input.max = 9999; input.step = 1;
+    input.value = scoreLimit;
+  }
 }
 
 // ─── Browse Screen ────────────────────────────────────────────────────────
@@ -1217,6 +1264,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tree-density').addEventListener('input', (e) => {
     treeDensity = parseInt(e.target.value);
     document.getElementById('tree-density-val').textContent = treeDensity + '%';
+    sendSetup();
+  });
+
+  document.getElementById('end-type-select').addEventListener('change', (e) => {
+    endType = e.target.value;
+    updateEndValueUI();
+    sendSetup();
+  });
+
+  document.getElementById('end-value-input').addEventListener('change', (e) => {
+    const val = parseInt(e.target.value) || 0;
+    if (endType === 'time') timeLimitMs = Math.max(60000, val * 60000);
+    else scoreLimit = Math.max(1, val);
     sendSetup();
   });
 

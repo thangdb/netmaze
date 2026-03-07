@@ -454,6 +454,20 @@ kbd.kbd-arrows { font-size: 0.9rem; letter-spacing: 2px; }
   white-space: nowrap;
 }
 #weapon-name { color: var(--accent2); font-weight: 600; }
+#game-limit-display {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.70);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
 
 
 /* ── Ended Screen ─────────────────────────────────────────────────────── */
