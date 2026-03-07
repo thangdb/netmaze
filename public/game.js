@@ -911,9 +911,40 @@ function renderFrame() {
 
   // Projectiles
   for (const pr of renderProjectiles) {
-    ctx.fillStyle = pr.weapon === 'rocket' ? '#ff8040' : '#ffff80';
-    const half = pr.size / 2;
-    ctx.fillRect(pr.x - half, pr.y - half, pr.size, pr.size);
+    if (pr.weapon === 'rocket') {
+      // Draw rocket sprite aligned to travel direction
+      const angle = Math.atan2(pr.dy, pr.dx) + Math.PI / 2;
+      const scale = pr.size / 20;
+      ctx.save();
+      ctx.translate(pr.x, pr.y);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ff8040';
+      // Body
+      ctx.beginPath(); ctx.roundRect(-2.5, -7, 5, 11, 1.5); ctx.fill();
+      // Nose cone
+      ctx.beginPath();
+      ctx.moveTo(-2.5, -7); ctx.lineTo(2.5, -7); ctx.lineTo(0, -12);
+      ctx.closePath(); ctx.fill();
+      // Left fin
+      ctx.beginPath();
+      ctx.moveTo(-2.5, 1); ctx.lineTo(-6, 6); ctx.lineTo(-2.5, 4);
+      ctx.closePath(); ctx.fill();
+      // Right fin
+      ctx.beginPath();
+      ctx.moveTo(2.5, 1); ctx.lineTo(6, 6); ctx.lineTo(2.5, 4);
+      ctx.closePath(); ctx.fill();
+      // Flame
+      ctx.fillStyle = '#fff9';
+      ctx.beginPath();
+      ctx.moveTo(-2, 4); ctx.lineTo(2, 4); ctx.lineTo(0, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#ffff80';
+      const half = pr.size / 2;
+      ctx.fillRect(pr.x - half, pr.y - half, pr.size, pr.size);
+    }
   }
 
   // Trees on top — semi-transparent so hidden tanks are still visible
