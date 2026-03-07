@@ -62,41 +62,65 @@ function generateMap(rockDensity = CONFIG.ROCK_DENSITY, treeDensity = CONFIG.TRE
     }
   }
 
-  // Flood-fill connectivity from (3, 0)
-  const startC = 3, startR = 0;
-  const visited = new Uint8Array(cols * rows);
-  const queue = [[startC, startR]];
-  visited[startR * cols + startC] = 1;
-  while (queue.length) {
-    const [c, r] = queue.shift();
-    for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-      const nc = c + dc, nr = r + dr;
-      if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
-      const idx = nr * cols + nc;
-      if (!visited[idx] && tiles[idx] !== TILE_ROCK) {
-        visited[idx] = 1;
-        queue.push([nc, nr]);
+  // Ensure all blank tiles form one connected region.
+  // Start flood-fill from (1,1) — always blank (top-left spawn zone).
+  const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
+  const flood = (sc, sr) => {
+    const vis = new Uint8Array(cols * rows);
+    vis[sr * cols + sc] = 1;
+    const q = [sr * cols + sc];
+    while (q.length) {
+      const idx = q.pop();
+      const c = idx % cols, r = (idx / cols) | 0;
+      for (const [dc, dr] of DIRS4) {
+        const nc = c + dc, nr = r + dr;
+        if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+        const ni = nr * cols + nc;
+        if (!vis[ni] && tiles[ni] !== TILE_ROCK) { vis[ni] = 1; q.push(ni); }
       }
     }
-  }
+    return vis;
+  };
 
-  // For any unreached blank tile, remove an adjacent rock to connect it
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const idx = r * cols + c;
-      if (tiles[idx] === TILE_BLANK && !visited[idx]) {
-        // Find adjacent rock and remove it
-        for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-          const nc = c + dc, nr = r + dr;
-          if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
-          const nidx = nr * cols + nc;
-          if (tiles[nidx] === TILE_ROCK) {
-            tiles[nidx] = TILE_BLANK;
-            break;
-          }
-        }
+  let vis = flood(1, 1);
+  for (;;) {
+    // Find any blank tile not yet reachable from main region
+    let isolated = -1;
+    for (let i = 0; i < tiles.length; i++) {
+      if (tiles[i] !== TILE_ROCK && !vis[i]) { isolated = i; break; }
+    }
+    if (isolated < 0) break; // all blank tiles connected
+
+    // BFS through ALL tiles (rocks included) to find shortest path to main region
+    const prev = new Int32Array(tiles.length).fill(-1);
+    const seen = new Uint8Array(tiles.length);
+    seen[isolated] = 1;
+    const q = [isolated];
+    let target = -1;
+    outer: while (q.length) {
+      const cur = q.shift();
+      const c = cur % cols, r = (cur / cols) | 0;
+      for (const [dc, dr] of DIRS4) {
+        const nc = c + dc, nr = r + dr;
+        if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+        const ni = nr * cols + nc;
+        if (seen[ni]) continue;
+        seen[ni] = 1;
+        prev[ni] = cur;
+        if (vis[ni]) { target = ni; break outer; }
+        q.push(ni);
       }
     }
+    if (target < 0) break; // unreachable (shouldn't happen on a finite grid)
+
+    // Carve: trace path back from target to isolated cell, removing rocks
+    let cur = target;
+    while (prev[cur] !== -1) {
+      cur = prev[cur];
+      if (tiles[cur] === TILE_ROCK) tiles[cur] = TILE_BLANK;
+    }
+
+    vis = flood(1, 1); // re-flood: newly carved path may connect more regions
   }
 
   // Place trees on non-spawn blank tiles
