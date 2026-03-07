@@ -58,7 +58,7 @@ let renderScores = [];
 
 // Kill feed
 let killFeed = []; // [{text, expiresAt}]
-let myWeapon = 'laser';
+let myWeapon = 'rocket';
 
 // Input interval handle
 let inputInterval = null;
@@ -575,8 +575,8 @@ function initGameScreen() {
   const lateJoinWrap = document.getElementById('late-join-wrap');
   lateJoinWrap.style.display = isHost ? '' : 'none';
   document.getElementById('late-join-toggle').checked = allowLateJoin;
-  document.getElementById('weapon-name').textContent = WEAPON_NAMES['laser'];
-  myWeapon = 'laser';
+  document.getElementById('weapon-name').textContent = WEAPON_NAMES['rocket'];
+  myWeapon = 'rocket';
 }
 
 // ─── Static Map Rendering ─────────────────────────────────────────────────

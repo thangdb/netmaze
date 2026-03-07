@@ -279,7 +279,7 @@ function checkProjectileCollisions(game) {
 
 function killPlayer(game, killerId, victim) {
   victim.alive = false;
-  victim.weapon = 'laser';
+  victim.weapon = 'rocket';
 
   // Award score to killer
   const killer = game.players.get(killerId);
@@ -301,7 +301,7 @@ function respawnPlayer(game, player) {
   player.x = spawn.x;
   player.y = spawn.y;
   player.alive = true;
-  player.weapon = 'laser';
+  player.weapon = 'rocket';
   player.lastFiredAt = 0;
   player.moving = false;
   player.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
@@ -598,7 +598,7 @@ function createPlayer(id, ws, name) {
     x: 0, y: 0,
     dir: 'E',
     moving: false,
-    weapon: 'laser',
+    weapon: 'rocket',
     lastFiredAt: 0,
     spawnProtectionUntil: 0,
     cloakUntil: 0,
