@@ -442,6 +442,19 @@ function renderLobby(players, hId, gameMode, gameTeams) {
       card.appendChild(ul);
       roster.appendChild(card);
     }
+    // "Add New Team" button at bottom of roster (host only, max 4 teams)
+    if (isHost && gameTeams.length < 4) {
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn btn-small';
+      addBtn.style.cssText = 'width:100%; margin-top:0.5rem';
+      addBtn.textContent = 'Add New Team';
+      addBtn.addEventListener('click', () => {
+        const colors = ['#e94560','#4080ff','#40c080','#ffd040','#c080ff','#ff8040'];
+        teams.push({ name: `Team ${teams.length + 1}`, color: colors[teams.length % colors.length] });
+        sendSetup();
+      });
+      roster.appendChild(addBtn);
+    }
   } else {
     roster.style.display = 'none';
   }
@@ -450,14 +463,12 @@ function renderLobby(players, hId, gameMode, gameTeams) {
   const hostControls = document.getElementById('host-controls');
   const visRow = document.getElementById('visibility-row');
   const waitingMsg = document.getElementById('lobby-waiting-msg');
-  const addTeamBtn = document.getElementById('add-team-btn');
   const startBtn = document.getElementById('start-btn');
   if (isHost) {
     hostControls.style.display = '';
     visRow.style.display = '';
     waitingMsg.style.display = 'none';
     document.getElementById('mode-select').value = gameMode;
-    addTeamBtn.style.display = gameMode === 'teams' ? '' : 'none';
     document.getElementById('rock-density').value = rockDensity;
     document.getElementById('rock-density-val').textContent = rockDensity + '%';
     document.getElementById('tree-density').value = treeDensity;
@@ -1232,7 +1243,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('mode-select').addEventListener('change', (e) => {
     mode = e.target.value;
     sendSetup();
-    document.getElementById('add-team-btn').style.display = mode === 'teams' ? '' : 'none';
   });
 
   document.getElementById('game-public-toggle').addEventListener('change', (e) => {
@@ -1281,12 +1291,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sendSetup();
   });
 
-  document.getElementById('add-team-btn').addEventListener('click', () => {
-    const colors = ['#e94560','#4080ff','#40c080','#ffd040','#c080ff','#ff8040'];
-    if (teams.length >= 4) return;
-    teams.push({ name: `Team ${teams.length + 1}`, color: colors[teams.length % colors.length] });
-    sendSetup();
-  });
 
   document.getElementById('start-btn').addEventListener('click', () => {
     sendWS({ type: 'start_game' });

@@ -343,6 +343,7 @@ select option { background: var(--bg-card); }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 5px;
   font-size: 0.78rem;
   color: var(--muted);
   cursor: pointer;
