@@ -37,7 +37,7 @@ let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
 let rockDensity = 2, treeDensity = 2; // percentages, synced from server
 let gameIsPublic = true, gamePassword = '';
-let endType = 'unlimited', timeLimitMs = 10 * 60 * 1000, scoreLimit = 30;
+let endType = 'time', timeLimitMs = 10 * 60 * 1000, scoreLimit = 30;
 let hostId = null;
 
 // Browse / password flow

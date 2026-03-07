@@ -639,7 +639,7 @@ function handleJoin(ws, payload) {
       treeDensity: CONFIG.TREE_DENSITY,
       isPublic: true,
       password: '',
-      endType: 'unlimited', // 'unlimited' | 'time' | 'score'
+      endType: 'time', // 'unlimited' | 'time' | 'score'
       timeLimitMs: 10 * 60 * 1000,
       scoreLimit: 30,
       startedAt: null,
