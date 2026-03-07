@@ -270,7 +270,7 @@ function killPlayer(game, killerId, victim) {
 
   // Award score to killer
   const killer = game.players.get(killerId);
-  if (killer) killer.score++;
+  if (killer) { killer.score++; game.scoresDirty = true; }
 
   // Broadcast kill event
   const killerName = killer ? killer.name : 'Unknown';
@@ -355,6 +355,14 @@ function checkPowerupPickups(game) {
   game.powerups = remaining;
 }
 
+function getCachedScores(game) {
+  if (game.scoresDirty) {
+    game.cachedScores = buildScores(game);
+    game.scoresDirty = false;
+  }
+  return game.cachedScores;
+}
+
 function buildSnapshot(game, forPlayer) {
   const now = Date.now();
   const players = [];
@@ -370,8 +378,8 @@ function buildSnapshot(game, forPlayer) {
       name: p.name,
       teamIndex: p.teamIndex,
       alive: p.alive,
-      x: p.x,
-      y: p.y,
+      x: Math.round(p.x * 10) / 10, // 1 decimal place is plenty
+      y: Math.round(p.y * 10) / 10,
       dir: p.dir,
       weapon: p.weapon,
       score: p.score,
@@ -386,12 +394,15 @@ function buildSnapshot(game, forPlayer) {
     type: 'state',
     players,
     projectiles: game.projectiles.map(pr => ({
-      id: pr.id, x: pr.x, y: pr.y, weapon: pr.weapon, size: pr.size,
+      id: pr.id,
+      x: Math.round(pr.x),
+      y: Math.round(pr.y),
+      weapon: pr.weapon, size: pr.size,
     })),
     powerups: game.powerups.map(pu => ({
       id: pu.id, type: pu.type, x: pu.x, y: pu.y,
     })),
-    scores: buildScores(game),
+    scores: getCachedScores(game),
   };
 }
 
@@ -523,6 +534,8 @@ function handleJoin(ws, payload) {
       powerupTimer: null,
       nextProjectileId: 1,
       nextPowerupId: 1,
+      scoresDirty: true,
+      cachedScores: null,
     };
 
     games.set(newGameId, game);
@@ -658,6 +671,8 @@ function handlePlayAgain(ws, game, player) {
   game.powerups = [];
   game.nextProjectileId = 1;
   game.nextPowerupId = 1;
+  game.scoresDirty = true;
+  game.cachedScores = null;
   game.map = null;
 
   for (const [, p] of game.players) {
