@@ -23,7 +23,7 @@ const ICE_SERVERS = [
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const CONFIG = {
-  TILE_SIZE: 32, MAP_COLS: 25, MAP_ROWS: 18,
+  TILE_SIZE: 32, MAP_COLS: 31, MAP_ROWS: 23,
   TICK_MS: 50,
   TANK_SPEED: 120,
   TANK_SIZE: 30, TANK_HALF: 15,
@@ -199,9 +199,6 @@ function fireWeapon(game, player) {
     if (now - player.lastFiredAt < CONFIG.ROCKET_COOLDOWN) return;
   }
   player.lastFiredAt = now;
-
-  // Break cloak on fire
-  player.cloakUntil = 0;
 
   const speed = weaponSpeed(player.weapon);
   const size = weaponSize(player.weapon);

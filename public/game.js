@@ -561,14 +561,15 @@ function initGameScreen() {
   ctx = canvas.getContext('2d');
 
   mapCanvas = document.createElement('canvas');
-  mapCanvas.width = 800; mapCanvas.height = 576;
+  mapCanvas.width = 992; mapCanvas.height = 736;
   mapCtx = mapCanvas.getContext('2d');
 
   treeCanvas = document.createElement('canvas');
-  treeCanvas.width = 800; treeCanvas.height = 576;
+  treeCanvas.width = 992; treeCanvas.height = 736;
   treeCtx = treeCanvas.getContext('2d');
 
   document.getElementById('end-game-btn-wrap').style.display = isHost ? '' : 'none';
+  document.getElementById('instr-divider').style.display = isHost ? '' : 'none';
   const lateJoinWrap = document.getElementById('late-join-wrap');
   lateJoinWrap.style.display = isHost ? '' : 'none';
   document.getElementById('late-join-toggle').checked = allowLateJoin;
@@ -583,7 +584,7 @@ function renderStaticMap() {
 
   {
     mapCtx.fillStyle = '#2d4a1e';
-    mapCtx.fillRect(0, 0, 800, 576);
+    mapCtx.fillRect(0, 0, 992, 736);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const t = tiles[r * cols + c];
@@ -599,20 +600,54 @@ function renderStaticMap() {
         }
       }
     }
-    treeCtx.clearRect(0, 0, 800, 576);
+    // Cartoon trees — each drawn to a temp canvas then composited so
+    // destination-out gaps don't bleed into neighbouring trees.
+    const tmp = document.createElement('canvas');
+    tmp.width = 992; tmp.height = 736;
+    const tc = tmp.getContext('2d');
+    // Canopy gap offsets [dx, dy, radius] — stay in canopy, clear of trunk
+    const GAP_OFFSETS = [[9,-12,5],[-12,-4,4],[-3,-19,3],[14,1,4],[-13,2,3],[4,6,4]];
+    treeCtx.clearRect(0, 0, 992, 736);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         if (tiles[r * cols + c] !== TILE_TREE) continue;
         const x = c * TILE_SIZE + TILE_SIZE / 2;
         const y = r * TILE_SIZE + TILE_SIZE / 2;
-        treeCtx.beginPath();
-        treeCtx.arc(x, y, 28, 0, Math.PI * 2);
-        treeCtx.fillStyle = '#1a5c20';
-        treeCtx.fill();
-        treeCtx.beginPath();
-        treeCtx.arc(x - 6, y - 6, 20, 0, Math.PI * 2);
-        treeCtx.fillStyle = '#226b28';
-        treeCtx.fill();
+        tc.clearRect(x - 34, y - 34, 68, 68);
+        tc.globalCompositeOperation = 'source-over';
+
+        // Trunk
+        tc.fillStyle = '#7a4a1a'; tc.strokeStyle = '#3d200a'; tc.lineWidth = 1.5;
+        tc.beginPath(); tc.roundRect(x - 4, y + 14, 8, 13, 2); tc.fill(); tc.stroke();
+
+        // Main canopy
+        tc.fillStyle = '#3a9e28'; tc.strokeStyle = '#1a4a0e'; tc.lineWidth = 2;
+        tc.beginPath(); tc.arc(x, y - 2, 20, 0, Math.PI * 2); tc.fill(); tc.stroke();
+
+        // Left blob
+        tc.fillStyle = '#348c22';
+        tc.beginPath(); tc.arc(x - 13, y + 5, 13, 0, Math.PI * 2); tc.fill(); tc.stroke();
+
+        // Right blob
+        tc.fillStyle = '#3a9830';
+        tc.beginPath(); tc.arc(x + 11, y + 6, 12, 0, Math.PI * 2); tc.fill(); tc.stroke();
+
+        // Top pop
+        tc.fillStyle = '#4ab832'; tc.strokeStyle = '#1a4a0e'; tc.lineWidth = 1.5;
+        tc.beginPath(); tc.arc(x + 5, y - 14, 9, 0, Math.PI * 2); tc.fill(); tc.stroke();
+
+        // Canopy highlight (no outline)
+        tc.fillStyle = 'rgba(120,255,80,0.28)';
+        tc.beginPath(); tc.arc(x - 5, y - 8, 9, 0, Math.PI * 2); tc.fill();
+
+        // Punch canopy gaps
+        tc.globalCompositeOperation = 'destination-out';
+        for (const [gx, gy, gr] of GAP_OFFSETS) {
+          tc.beginPath(); tc.arc(x + gx, y + gy, gr, 0, Math.PI * 2);
+          tc.fillStyle = 'black'; tc.fill();
+        }
+        tc.globalCompositeOperation = 'source-over';
+        treeCtx.drawImage(tmp, x - 34, y - 34, 68, 68, x - 34, y - 34, 68, 68);
       }
     }
   }
@@ -630,6 +665,190 @@ function playerColor(player) {
   return TANK_COLORS[idx % TANK_COLORS.length];
 }
 
+// ─── Color Helper ─────────────────────────────────────────────────────────
+function shadeColor(hex, amount) {
+  try {
+    const r = Math.max(0, Math.min(255, parseInt(hex.slice(1,3), 16) + amount));
+    const g = Math.max(0, Math.min(255, parseInt(hex.slice(3,5), 16) + amount));
+    const b = Math.max(0, Math.min(255, parseInt(hex.slice(5,7), 16) + amount));
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  } catch { return hex; }
+}
+
+// ─── Cartoon Tank Renderer ────────────────────────────────────────────────
+function drawCartoonTank(ctx, dir, color) {
+  const ol = '#111';
+
+  // Tracks
+  ctx.fillStyle = '#3e3e3e';
+  ctx.strokeStyle = ol;
+  ctx.lineWidth = 1;
+  if (dir === 'E' || dir === 'W') {
+    ctx.beginPath(); ctx.roundRect(-13, -15, 26, 5, 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(-13, 10, 26, 5, 2); ctx.fill(); ctx.stroke();
+    // Track link marks
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.7;
+    for (let tx = -10; tx <= 10; tx += 4) {
+      ctx.beginPath(); ctx.moveTo(tx, -15); ctx.lineTo(tx, -10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx, 10); ctx.lineTo(tx, 15); ctx.stroke();
+    }
+  } else {
+    ctx.beginPath(); ctx.roundRect(-15, -13, 5, 26, 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(10, -13, 5, 26, 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.7;
+    for (let ty = -10; ty <= 10; ty += 4) {
+      ctx.beginPath(); ctx.moveTo(-15, ty); ctx.lineTo(-10, ty); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, ty); ctx.lineTo(15, ty); ctx.stroke();
+    }
+  }
+
+  // Barrel
+  ctx.fillStyle = '#aaaaaa';
+  ctx.strokeStyle = ol; ctx.lineWidth = 1.5;
+  if      (dir === 'E') { ctx.beginPath(); ctx.roundRect( 9,    -3.5, 13, 7, 3); ctx.fill(); ctx.stroke(); }
+  else if (dir === 'W') { ctx.beginPath(); ctx.roundRect(-22,   -3.5, 13, 7, 3); ctx.fill(); ctx.stroke(); }
+  else if (dir === 'N') { ctx.beginPath(); ctx.roundRect(-3.5, -22,   7, 13, 3); ctx.fill(); ctx.stroke(); }
+  else if (dir === 'S') { ctx.beginPath(); ctx.roundRect(-3.5,   9,   7, 13, 3); ctx.fill(); ctx.stroke(); }
+
+  // Body
+  ctx.fillStyle = color;
+  ctx.strokeStyle = ol; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 4); ctx.fill(); ctx.stroke();
+
+  // Body highlight (top-left sheen)
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.roundRect(-9, -9, 10, 7, 2); ctx.fill();
+
+  // Turret
+  ctx.fillStyle = shadeColor(color, -35);
+  ctx.strokeStyle = ol; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // Turret highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.arc(-2, -2, 3.5, 0, Math.PI * 2); ctx.fill();
+}
+
+// ─── Powerup Icon Renderer ────────────────────────────────────────────────
+function drawPowerupIcon(ctx, type, x, y, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+
+  switch (type) {
+    case 'rocket': {
+      ctx.save();
+      ctx.rotate(-Math.PI / 4); // 45° diagonal, pointing up-right
+      // Body
+      ctx.beginPath();
+      ctx.roundRect(-2.5, -7, 5, 11, 1.5);
+      ctx.fill();
+      // Nose cone
+      ctx.beginPath();
+      ctx.moveTo(-2.5, -7); ctx.lineTo(2.5, -7); ctx.lineTo(0, -12);
+      ctx.closePath(); ctx.fill();
+      // Left fin
+      ctx.beginPath();
+      ctx.moveTo(-2.5, 1); ctx.lineTo(-6, 6); ctx.lineTo(-2.5, 4);
+      ctx.closePath(); ctx.fill();
+      // Right fin
+      ctx.beginPath();
+      ctx.moveTo(2.5, 1); ctx.lineTo(6, 6); ctx.lineTo(2.5, 4);
+      ctx.closePath(); ctx.fill();
+      // Flame
+      ctx.fillStyle = '#fff9';
+      ctx.beginPath();
+      ctx.moveTo(-2, 4); ctx.lineTo(2, 4); ctx.lineTo(0, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case 'triple_laser': {
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      // Three converging beams
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-9, i * 3.5);
+        ctx.lineTo(5, i * 1.2);
+        ctx.stroke();
+      }
+      // Arrowhead
+      ctx.beginPath();
+      ctx.moveTo(5, -3); ctx.lineTo(10, 0); ctx.lineTo(5, 3);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'full_armor': {
+      ctx.lineWidth = 1.5;
+      // Shield outline
+      ctx.beginPath();
+      ctx.moveTo(0, -10); ctx.lineTo(8, -5); ctx.lineTo(8, 3);
+      ctx.lineTo(0, 10); ctx.lineTo(-8, 3); ctx.lineTo(-8, -5);
+      ctx.closePath();
+      ctx.fillStyle = color + '28'; ctx.fill();
+      ctx.stroke();
+      // Checkmark
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-4, 0); ctx.lineTo(-1, 4); ctx.lineTo(5, -4);
+      ctx.stroke();
+      break;
+    }
+    case 'cloak': {
+      ctx.lineWidth = 1.5;
+      // Ghost body
+      ctx.beginPath();
+      ctx.arc(0, -1, 8, Math.PI, 0);
+      ctx.lineTo(8, 8);
+      ctx.quadraticCurveTo(5.5, 11, 3.5, 8);
+      ctx.quadraticCurveTo(1.5, 5, 0, 8);
+      ctx.quadraticCurveTo(-1.5, 11, -3.5, 8);
+      ctx.lineTo(-8, 8);
+      ctx.closePath();
+      ctx.fillStyle = color + '25'; ctx.fill();
+      ctx.stroke();
+      // Eyes
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(-2.5, 1.5, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(2.5, 1.5, 1.5, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    default: {
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', 0, 0);
+    }
+  }
+  ctx.restore();
+}
+
+// ─── Instruction Icons ────────────────────────────────────────────────────
+function drawInstructionIcons() {
+  const icons = [
+    { id: 'icon-triple-laser', type: 'triple_laser', color: '#40c0ff' },
+    { id: 'icon-rocket',       type: 'rocket',       color: '#ff8040' },
+    { id: 'icon-armor',        type: 'full_armor',   color: '#40ff80' },
+    { id: 'icon-cloak',        type: 'cloak',        color: '#c080ff' },
+  ];
+  for (const { id, type, color } of icons) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const c = el.getContext('2d');
+    const cx = 14, cy = 14;
+    c.clearRect(0, 0, 28, 28);
+    c.beginPath(); c.arc(cx, cy, 13, 0, Math.PI * 2);
+    c.fillStyle = color + '28'; c.fill();
+    c.beginPath(); c.arc(cx, cy, 13, 0, Math.PI * 2);
+    c.strokeStyle = color; c.lineWidth = 1.5; c.stroke();
+    drawPowerupIcon(c, type, cx, cy, color);
+  }
+}
+
 // ─── Main Render Frame ────────────────────────────────────────────────────
 function renderFrame() {
   if (!canvas || !gameMap) return;
@@ -643,20 +862,20 @@ function renderFrame() {
   // Powerups
   for (const pu of renderPowerups) {
     const color = POWERUP_COLORS[pu.type] || '#ffffff';
+    ctx.save();
+    // Glowing circle background
     ctx.beginPath();
-    ctx.arc(pu.x, pu.y, 12, 0, Math.PI * 2);
-    ctx.fillStyle = color + '33';
+    ctx.arc(pu.x, pu.y, 13, 0, Math.PI * 2);
+    ctx.fillStyle = color + '28';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(pu.x, pu.y, 12, 0, Math.PI * 2);
+    ctx.arc(pu.x, pu.y, 13, 0, Math.PI * 2);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.font = 'bold 14px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(POWERUP_LETTERS[pu.type] || '?', pu.x, pu.y);
+    // Icon
+    drawPowerupIcon(ctx, pu.type, pu.x, pu.y, color);
+    ctx.restore();
   }
 
   // Tanks
@@ -672,26 +891,19 @@ function renderFrame() {
     const color = playerColor(p);
 
     if (p.armored) {
-      ctx.beginPath();
-      ctx.arc(0, 0, 18, 0, Math.PI * 2);
-      ctx.strokeStyle = '#40ff80';
-      ctx.lineWidth = 3;
-      ctx.stroke();
+      // Glowing armor ring
+      ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(64,255,128,0.35)'; ctx.lineWidth = 7; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.strokeStyle = '#40ff80'; ctx.lineWidth = 2.5; ctx.stroke();
     }
-    ctx.fillStyle = color;
-    ctx.fillRect(-13, -13, 26, 26);
-    ctx.fillStyle = '#cccccc';
-    const blen = 18;
-    if (p.dir === 'N') ctx.fillRect(-3, -blen, 6, blen);
-    else if (p.dir === 'S') ctx.fillRect(-3, 0, 6, blen);
-    else if (p.dir === 'E') ctx.fillRect(0, -3, blen, 6);
-    else if (p.dir === 'W') ctx.fillRect(-blen, -3, blen, 6);
+    drawCartoonTank(ctx, p.dir, color);
     ctx.globalAlpha = 1.0;
-    ctx.fillStyle = isMe ? '#ffffff' : '#cccccc';
+    ctx.fillStyle = isMe ? '#ffffff' : '#dddddd';
     ctx.font = isMe ? 'bold 11px sans-serif' : '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(p.name || '', 0, -15);
+    ctx.fillText(p.name || '', 0, -19);
     ctx.restore();
   }
 
@@ -702,8 +914,11 @@ function renderFrame() {
     ctx.fillRect(pr.x - half, pr.y - half, pr.size, pr.size);
   }
 
-  // Trees on top
+  // Trees on top — semi-transparent so hidden tanks are still visible
+  ctx.save();
+  ctx.globalAlpha = 0.75;
   ctx.drawImage(treeCanvas, 0, 0);
+  ctx.restore();
 
   renderKillFeed(now);
 }
@@ -855,6 +1070,8 @@ function escHtml(str) {
 
 // ─── Event Listeners ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  drawInstructionIcons();
+
   // Home screen
   const nameInput = document.getElementById('name-input');
   const gameIdInput = document.getElementById('game-id-input');

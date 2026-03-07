@@ -109,6 +109,12 @@ select option { background: var(--bg-card); }
 
 .btn-row { display: flex; gap: 0.75rem; justify-content: center; margin-top: 0.5rem; }
 
+.home-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}
+
 /* ── Lobby Layout ─────────────────────────────────────────────────────── */
 .lobby-card { width: 720px; }
 
@@ -254,15 +260,15 @@ select option { background: var(--bg-card); }
 
 .game-wrap {
   position: relative;
-  width: 800px;
-  height: 576px;
+  width: 992px;
+  height: 736px;
   flex-shrink: 0;
 }
 
 #score-panel {
   width: 180px;
   min-width: 160px;
-  height: 576px;
+  height: 736px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -365,6 +371,11 @@ select option { background: var(--bg-card); }
 .toggle-switch input:checked + .toggle-knob { background: var(--accent2); }
 .toggle-switch input:checked + .toggle-knob::before { transform: translateX(14px); }
 
+.instr-divider {
+  border-top: 1px solid var(--border);
+  margin: 0.4rem 0 0.2rem;
+}
+
 /* ── In-game instructions ──────────────────────────────────────────────── */
 .game-instructions {
   font-size: 0.72rem;
@@ -396,11 +407,10 @@ kbd {
   white-space: nowrap;
   color: var(--text);
 }
-.pu-badge {
-  font-weight: 700;
-  font-size: 0.78rem;
-  width: 14px;
-  text-align: center;
+kbd.kbd-arrows { font-size: 0.9rem; letter-spacing: 2px; }
+.instr-icon {
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 

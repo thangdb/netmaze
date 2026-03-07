@@ -24,7 +24,8 @@
         <button id="create-btn" class="btn btn-primary">Create Game</button>
         <button id="join-btn" class="btn btn-secondary">Join Game</button>
       </div>
-      <button id="browse-btn" class="btn btn-secondary" style="width:100%; margin-top:0.5rem">Browse Public Games</button>
+      <div class="home-divider"></div>
+      <button id="browse-btn" class="btn btn-secondary" style="width:100%">Browse Public Games</button>
     </div>
   </div>
 
@@ -106,7 +107,7 @@
   <!-- ── GAME SCREEN ─────────────────────────────────────────────────────── -->
   <div id="screen-game" class="screen">
     <div class="game-wrap">
-      <canvas id="game-canvas" width="800" height="576"></canvas>
+      <canvas id="game-canvas" width="992" height="736"></canvas>
       <div id="hud-overlay">
         <div id="kill-feed"></div>
         <div id="weapon-display">Weapon: <span id="weapon-name">Basic Laser</span></div>
@@ -130,16 +131,17 @@
         <div id="end-game-btn-wrap" style="display:none">
           <button id="end-game-btn" class="btn btn-danger" style="width:100%">End Game</button>
         </div>
+        <div id="instr-divider" class="instr-divider" style="display:none"></div>
         <div class="game-instructions">
           <div class="instr-section">Controls</div>
-          <div class="instr-row"><kbd>↑ ↓ ← →</kbd> Move</div>
+          <div class="instr-row"><kbd class="kbd-arrows">↑ ↓ ← →</kbd> Move</div>
           <div class="instr-row"><kbd>Space</kbd> Fire</div>
           <div class="instr-row"><kbd>Shift</kbd> Stop tank</div>
           <div class="instr-section">Powerups</div>
-          <div class="instr-row"><span class="pu-badge" style="color:#40c0ff">T</span> Triple Laser</div>
-          <div class="instr-row"><span class="pu-badge" style="color:#ff8040">R</span> Rocket</div>
-          <div class="instr-row"><span class="pu-badge" style="color:#40ff80">A</span> Armor (20s)</div>
-          <div class="instr-row"><span class="pu-badge" style="color:#c080ff">C</span> Cloak (20s)</div>
+          <div class="instr-row"><canvas id="icon-triple-laser" class="instr-icon" width="28" height="28"></canvas> Triple Laser</div>
+          <div class="instr-row"><canvas id="icon-rocket" class="instr-icon" width="28" height="28"></canvas> Rocket</div>
+          <div class="instr-row"><canvas id="icon-armor" class="instr-icon" width="28" height="28"></canvas> Armor — invincible 20s</div>
+          <div class="instr-row"><canvas id="icon-cloak" class="instr-icon" width="28" height="28"></canvas> Cloak — invisible 20s</div>
         </div>
       </div>
     </div>
