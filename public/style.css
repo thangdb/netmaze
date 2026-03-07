@@ -127,7 +127,7 @@ select option { background: var(--bg-card); }
 .lobby-info strong { color: var(--accent2); letter-spacing: 1px; font-size: 1rem; }
 .lobby-info .btn { margin-left: auto; }
 
-.lobby-body { display: flex; gap: 1.25rem; min-height: 180px; margin-bottom: 1rem; }
+.lobby-body { display: flex; align-items: flex-start; gap: 1.25rem; min-height: 180px; margin-bottom: 1rem; }
 .lobby-section { flex: 1; min-width: 0; }
 .lobby-section h3 { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
 
