@@ -180,9 +180,9 @@ select option { background: var(--bg-card); }
 .host-bar .form-group { margin: 0; display: flex; flex-direction: column; }
 .host-bar label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; }
 .host-bar .btn-small { height: 36px; display: flex; align-items: center; }
-.host-bar select, .host-bar input[type="number"] { height: 32px; box-sizing: border-box; }
+.host-bar select, .host-bar input[type="number"] { height: 38px; box-sizing: border-box; font-size: 0.88rem; padding: 0 0.5rem; line-height: 38px; }
 .host-divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 0.1rem; }
-.host-density-col { display: flex; flex-direction: column; gap: 0.45rem; }
+.host-density-col { display: flex; flex-direction: column; gap: 0.9rem; }
 
 /* Visibility bar (public/private toggle) */
 .visibility-bar {
