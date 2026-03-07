@@ -695,8 +695,8 @@ function handleSetup(ws, game, player, payload) {
   if (game.phase !== 'lobby') return;
   if (payload.mode) game.mode = payload.mode;
   if (payload.teams) game.teams = payload.teams;
-  if (typeof payload.rockDensity === 'number') game.rockDensity = Math.max(0, Math.min(0.5, payload.rockDensity));
-  if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.5, payload.treeDensity));
+  if (typeof payload.rockDensity === 'number') game.rockDensity = Math.max(0, Math.min(0.10, payload.rockDensity));
+  if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.20, payload.treeDensity));
   if (typeof payload.isPublic === 'boolean') game.isPublic = payload.isPublic;
   if (typeof payload.password === 'string') game.password = payload.password.slice(0, 30);
   if (['unlimited','time','score'].includes(payload.endType)) game.endType = payload.endType;
