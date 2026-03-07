@@ -37,19 +37,12 @@ function generateMap() {
   ];
   const isSpawn = (c, r) => spawnZones.some(([sc, sr]) => c >= sc && c < sc + 3 && r >= sr && r < sr + 3);
 
-  // Place rocks — no two rocks with exactly 1 empty tile between them (orthogonally)
-  // i.e. rocks must be adjacent (distance 1) or at least 3 apart (distance 3+)
+  // Place rocks
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (isSpawn(c, r) || Math.random() >= ROCK_DENSITY) continue;
-      let tooClose = false;
-      for (const [dc, dr] of [[2,0],[-2,0],[0,2],[0,-2]]) {
-        const nc = c + dc, nr = r + dr;
-        if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && tiles[nr * cols + nc] === TILE_ROCK) {
-          tooClose = true; break;
-        }
+      if (!isSpawn(c, r) && Math.random() < ROCK_DENSITY) {
+        tiles[r * cols + c] = TILE_ROCK;
       }
-      if (!tooClose) tiles[r * cols + c] = TILE_ROCK;
     }
   }
 
@@ -90,22 +83,13 @@ function generateMap() {
     }
   }
 
-  // Place trees — no two trees within Chebyshev distance 1 (prevents visual overlap)
+  // Place trees on non-spawn blank tiles
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
-      if (tiles[idx] !== TILE_BLANK || isSpawn(c, r) || Math.random() >= TREE_DENSITY) continue;
-      let nearTree = false;
-      outer: for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dc === 0 && dr === 0) continue;
-          const nc = c + dc, nr = r + dr;
-          if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && tiles[nr * cols + nc] === TILE_TREE) {
-            nearTree = true; break outer;
-          }
-        }
+      if (tiles[idx] === TILE_BLANK && !isSpawn(c, r) && Math.random() < TREE_DENSITY) {
+        tiles[idx] = TILE_TREE;
       }
-      if (!nearTree) tiles[idx] = TILE_TREE;
     }
   }
 
@@ -286,7 +270,7 @@ function killPlayer(game, killerId, victim) {
 
   // Award score to killer
   const killer = game.players.get(killerId);
-  if (killer) { killer.score++; game.scoresDirty = true; }
+  if (killer) killer.score++;
 
   // Broadcast kill event
   const killerName = killer ? killer.name : 'Unknown';
@@ -371,14 +355,6 @@ function checkPowerupPickups(game) {
   game.powerups = remaining;
 }
 
-function getCachedScores(game) {
-  if (game.scoresDirty) {
-    game.cachedScores = buildScores(game);
-    game.scoresDirty = false;
-  }
-  return game.cachedScores;
-}
-
 function buildSnapshot(game, forPlayer) {
   const now = Date.now();
   const players = [];
@@ -394,8 +370,8 @@ function buildSnapshot(game, forPlayer) {
       name: p.name,
       teamIndex: p.teamIndex,
       alive: p.alive,
-      x: Math.round(p.x * 10) / 10, // 1 decimal place is plenty
-      y: Math.round(p.y * 10) / 10,
+      x: p.x,
+      y: p.y,
       dir: p.dir,
       weapon: p.weapon,
       score: p.score,
@@ -410,15 +386,12 @@ function buildSnapshot(game, forPlayer) {
     type: 'state',
     players,
     projectiles: game.projectiles.map(pr => ({
-      id: pr.id,
-      x: Math.round(pr.x),
-      y: Math.round(pr.y),
-      weapon: pr.weapon, size: pr.size,
+      id: pr.id, x: pr.x, y: pr.y, weapon: pr.weapon, size: pr.size,
     })),
     powerups: game.powerups.map(pu => ({
       id: pu.id, type: pu.type, x: pu.x, y: pu.y,
     })),
-    scores: getCachedScores(game),
+    scores: buildScores(game),
   };
 }
 
@@ -578,8 +551,6 @@ function handleJoin(ws, payload) {
       nextProjectileId: 1,
       nextPowerupId: 1,
       allowLateJoin: false,
-      scoresDirty: true,
-      cachedScores: null,
     };
 
     games.set(newGameId, game);
@@ -716,8 +687,6 @@ function handlePlayAgain(ws, game, player) {
   game.nextProjectileId = 1;
   game.nextPowerupId = 1;
   game.allowLateJoin = false;
-  game.scoresDirty = true;
-  game.cachedScores = null;
   game.map = null;
 
   for (const [, p] of game.players) {

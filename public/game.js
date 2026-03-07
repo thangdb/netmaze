@@ -49,15 +49,6 @@ let renderProjectiles = [];
 let renderPowerups = [];
 let renderScores = [];
 
-// Stable color assignment: populated on game_start, never changes mid-game
-let playerColorMap = new Map(); // id → color index
-
-// Client-side prediction for own tank
-let localX = null, localY = null;
-
-// Interpolation data for remote players: id → {fromX, fromY, toX, toY, t}
-let prevPositions = new Map();
-
 // Kill feed
 let killFeed = []; // [{text, expiresAt}]
 let myWeapon = 'laser';
@@ -161,11 +152,6 @@ function handleServerMessage(msg) {
       renderProjectiles = [];
       renderPowerups = [];
       killFeed = [];
-      // Stable color map: use order from server's initial player list
-      playerColorMap = new Map(msg.players.map((p, i) => [p.id, i]));
-      // Init client prediction and interpolation positions
-      prevPositions = new Map(msg.players.map(p => [p.id, { fromX: p.x, fromY: p.y, toX: p.x, toY: p.y, t: performance.now() }]));
-      { const me = msg.players.find(p => p.id === myId); if (me) { localX = me.x; localY = me.y; } }
       initGameScreen();
       showScreen('game');
       startRenderLoop();
@@ -181,8 +167,6 @@ function handleServerMessage(msg) {
         if (!canvas) initGameScreen(); // late-joiner path
         if (msg.snapshot) {
           applySnapshot(msg.snapshot);
-          const me = (msg.snapshot.players || []).find(p => p.id === myId);
-          if (me) { localX = me.x; localY = me.y; }
         }
         showScreen('game');
         startRenderLoop();
@@ -204,7 +188,6 @@ function handleServerMessage(msg) {
 
     case 'game_over':
       currentPhase = 'ended';
-      localX = null; localY = null;
       stopInputLoop();
       stopRenderLoop();
       showEndedScreen(msg.scores);
@@ -226,26 +209,7 @@ function handleServerMessage(msg) {
 }
 
 function applySnapshot(snap) {
-  const t = performance.now();
-  for (const p of (snap.players || [])) {
-    const prev = prevPositions.get(p.id);
-    // Animate from last known server pos to new server pos
-    prevPositions.set(p.id, {
-      fromX: prev ? prev.toX : p.x,
-      fromY: prev ? prev.toY : p.y,
-      toX: p.x, toY: p.y, t,
-    });
-    // Reconcile client prediction for own tank: snap if too far off
-    if (p.id === myId && localX !== null) {
-      if (Math.hypot(p.x - localX, p.y - localY) > 64) { localX = p.x; localY = p.y; }
-    }
-  }
-
   renderPlayers = snap.players || [];
-  // Assign stable colors to any players not yet in map (late-joiners or reconnects)
-  for (const p of renderPlayers) {
-    if (!playerColorMap.has(p.id)) playerColorMap.set(p.id, playerColorMap.size);
-  }
   renderProjectiles = snap.projectiles || [];
   renderPowerups = snap.powerups || [];
   if (snap.scores) { renderScores = snap.scores; updateScorePanel(snap.scores); }
@@ -470,33 +434,13 @@ function renderStaticMap() {
   mapDirty = false;
 }
 
-// ─── Wall collision (client-side, mirrors server logic) ──────────────────
-function clientCollidesWithWall(x, y) {
-  if (!gameMap) return false;
-  const { tiles, cols, rows } = gameMap;
-  const half = 13; // TANK_HALF - 2
-  for (const [cx, cy] of [[x-half,y-half],[x+half,y-half],[x-half,y+half],[x+half,y+half]]) {
-    const tc = Math.floor(cx / TILE_SIZE), tr = Math.floor(cy / TILE_SIZE);
-    if (tc < 0 || tc >= cols || tr < 0 || tr >= rows || tiles[tr * cols + tc] === TILE_ROCK) return true;
-  }
-  return false;
-}
-
-// ─── Interpolated render position ─────────────────────────────────────────
-function getRenderPos(player) {
-  if (player.id === myId && localX !== null) return { x: localX, y: localY };
-  const pd = prevPositions.get(player.id);
-  if (!pd) return { x: player.x, y: player.y };
-  const t = Math.min((performance.now() - pd.t) / 50, 1); // 50ms = one tick
-  return { x: pd.fromX + (pd.toX - pd.fromX) * t, y: pd.fromY + (pd.toY - pd.fromY) * t };
-}
-
 // ─── Player Color Helper ──────────────────────────────────────────────────
 function playerColor(player) {
   if (mode === 'teams' && player.teamIndex >= 0 && player.teamIndex < teams.length) {
     return teams[player.teamIndex].color;
   }
-  const idx = playerColorMap.has(player.id) ? playerColorMap.get(player.id) : 0;
+  const allIds = renderPlayers.map(p => p.id);
+  const idx = allIds.indexOf(player.id);
   return TANK_COLORS[idx % TANK_COLORS.length];
 }
 
@@ -536,9 +480,8 @@ function renderFrame() {
     if (p.cloaked && !isMe) continue;
     if (p.spawnProtected && Math.floor(now / 250) % 2 === 0) continue;
 
-    const rp = getRenderPos(p);
     ctx.save();
-    ctx.translate(rp.x, rp.y);
+    ctx.translate(p.x, p.y);
     ctx.globalAlpha = p.cloaked ? 0.4 : 1.0;
     const color = playerColor(p);
 
@@ -663,15 +606,6 @@ function stopRenderLoop() {
 function startInputLoop() {
   if (inputInterval) return;
   inputInterval = setInterval(() => {
-    // Client-side prediction: move local tank immediately
-    if (isMoving && localX !== null) {
-      const speed = 120 * 0.05; // TANK_SPEED * dt (matches server)
-      let dx = 0, dy = 0;
-      if (localDir === 'N') dy = -speed; else if (localDir === 'S') dy = speed;
-      else if (localDir === 'E') dx = speed; else if (localDir === 'W') dx = -speed;
-      const nx = localX + dx, ny = localY + dy;
-      if (!clientCollidesWithWall(nx, ny)) { localX = nx; localY = ny; }
-    }
     sendWS({ type: 'input', dir: localDir, firing: firingHeld, moving: isMoving });
   }, 50);
 }
