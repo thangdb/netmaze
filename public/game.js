@@ -371,6 +371,12 @@ function renderLobby(players, hId, gameMode, gameTeams) {
   if (gameMode === 'teams') {
     roster.style.display = '';
     roster.innerHTML = '';
+    // Invisible spacer h3 — same height as the "Players" heading opposite it
+    const spacer = document.createElement('h3');
+    spacer.setAttribute('aria-hidden', 'true');
+    spacer.style.visibility = 'hidden';
+    spacer.textContent = 'Teams';
+    roster.appendChild(spacer);
     for (let i = 0; i < gameTeams.length; i++) {
       const t = gameTeams[i];
       const teamPlayers = players.filter(p => p.teamIndex === i);
