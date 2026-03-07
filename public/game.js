@@ -602,54 +602,47 @@ function renderStaticMap() {
         }
       }
     }
-    // Cartoon trees — each drawn to a temp canvas then composited so
-    // destination-out gaps don't bleed into neighbouring trees.
-    const tmp = document.createElement('canvas');
-    tmp.width = 992; tmp.height = 736;
-    const tc = tmp.getContext('2d');
-    // Canopy gap offsets [dx, dy, radius] — stay in canopy, clear of trunk
-    const GAP_OFFSETS = [[9,-12,5],[-12,-4,4],[-3,-19,3],[14,1,4],[-13,2,3],[4,6,4]];
+    // 2.5D top-down trees — drawn directly to treeCtx
     treeCtx.clearRect(0, 0, 992, 736);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         if (tiles[r * cols + c] !== TILE_TREE) continue;
         const x = c * TILE_SIZE + TILE_SIZE / 2;
         const y = r * TILE_SIZE + TILE_SIZE / 2;
-        tc.clearRect(x - 34, y - 34, 68, 68);
-        tc.globalCompositeOperation = 'source-over';
+        const tc = treeCtx;
 
-        // Trunk
-        tc.fillStyle = '#7a4a1a'; tc.strokeStyle = '#3d200a'; tc.lineWidth = 1.5;
-        tc.beginPath(); tc.roundRect(x - 4, y + 14, 8, 13, 2); tc.fill(); tc.stroke();
+        // Drop shadow — offset down-right to give 2.5D elevation feel
+        tc.fillStyle = 'rgba(0,0,0,0.28)';
+        tc.beginPath(); tc.ellipse(x + 5, y + 8, 18, 11, 0, 0, Math.PI * 2); tc.fill();
+
+        // Canopy outer ring (dark rim)
+        tc.fillStyle = '#1c5610'; tc.strokeStyle = '#0e3008'; tc.lineWidth = 1.5;
+        tc.beginPath(); tc.arc(x, y, 18, 0, Math.PI * 2); tc.fill(); tc.stroke();
 
         // Main canopy
-        tc.fillStyle = '#3a9e28'; tc.strokeStyle = '#1a4a0e'; tc.lineWidth = 2;
-        tc.beginPath(); tc.arc(x, y - 2, 20, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        tc.fillStyle = '#2e8c1a';
+        tc.beginPath(); tc.arc(x, y - 1, 15, 0, Math.PI * 2); tc.fill();
 
-        // Left blob
-        tc.fillStyle = '#348c22';
-        tc.beginPath(); tc.arc(x - 13, y + 5, 13, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        // Light side (sun from upper-left)
+        tc.fillStyle = '#42b424';
+        tc.beginPath(); tc.arc(x - 4, y - 5, 11, 0, Math.PI * 2); tc.fill();
 
-        // Right blob
-        tc.fillStyle = '#3a9830';
-        tc.beginPath(); tc.arc(x + 11, y + 6, 12, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        // Highlight dome
+        tc.fillStyle = '#6cd836';
+        tc.beginPath(); tc.arc(x - 6, y - 8, 6, 0, Math.PI * 2); tc.fill();
 
-        // Top pop
-        tc.fillStyle = '#4ab832'; tc.strokeStyle = '#1a4a0e'; tc.lineWidth = 1.5;
-        tc.beginPath(); tc.arc(x + 5, y - 14, 9, 0, Math.PI * 2); tc.fill(); tc.stroke();
+        // Specular glint
+        tc.fillStyle = 'rgba(210,255,170,0.50)';
+        tc.beginPath(); tc.arc(x - 8, y - 11, 3, 0, Math.PI * 2); tc.fill();
 
-        // Canopy highlight (no outline)
-        tc.fillStyle = 'rgba(120,255,80,0.28)';
-        tc.beginPath(); tc.arc(x - 5, y - 8, 9, 0, Math.PI * 2); tc.fill();
+        // Shadow recesses in foliage
+        tc.fillStyle = 'rgba(0,35,0,0.22)';
+        tc.beginPath(); tc.arc(x + 9, y + 4, 7, 0, Math.PI * 2); tc.fill();
+        tc.beginPath(); tc.arc(x - 7, y + 9, 5, 0, Math.PI * 2); tc.fill();
 
-        // Punch canopy gaps
-        tc.globalCompositeOperation = 'destination-out';
-        for (const [gx, gy, gr] of GAP_OFFSETS) {
-          tc.beginPath(); tc.arc(x + gx, y + gy, gr, 0, Math.PI * 2);
-          tc.fillStyle = 'black'; tc.fill();
-        }
-        tc.globalCompositeOperation = 'source-over';
-        treeCtx.drawImage(tmp, x - 34, y - 34, 68, 68, x - 34, y - 34, 68, 68);
+        // Trunk stub (visible at the south base in 2.5D)
+        tc.fillStyle = '#5a3010'; tc.strokeStyle = '#3a1e08'; tc.lineWidth = 1;
+        tc.beginPath(); tc.ellipse(x, y + 16, 3, 2, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
       }
     }
   }
