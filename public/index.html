@@ -78,8 +78,30 @@
         <span>Scores</span>
       </div>
       <div id="score-panel-body"></div>
-      <div id="end-game-btn-wrap" style="display:none; margin-top:auto; padding-top:1rem">
-        <button id="end-game-btn" class="btn btn-danger" style="width:100%">End Game</button>
+      <div class="score-panel-footer">
+        <div id="late-join-wrap" style="display:none">
+          <label class="toggle-row">
+            <span>Allow late join</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="late-join-toggle">
+              <span class="toggle-knob"></span>
+            </label>
+          </label>
+        </div>
+        <div id="end-game-btn-wrap" style="display:none">
+          <button id="end-game-btn" class="btn btn-danger" style="width:100%">End Game</button>
+        </div>
+        <div class="game-instructions">
+          <div class="instr-section">Controls</div>
+          <div class="instr-row"><kbd>↑ ↓ ← →</kbd> Move</div>
+          <div class="instr-row"><kbd>Space</kbd> Fire</div>
+          <div class="instr-row"><kbd>Shift</kbd> Stop tank</div>
+          <div class="instr-section">Powerups</div>
+          <div class="instr-row"><span class="pu-badge" style="color:#40c0ff">T</span> Triple Laser</div>
+          <div class="instr-row"><span class="pu-badge" style="color:#ff8040">R</span> Rocket</div>
+          <div class="instr-row"><span class="pu-badge" style="color:#40ff80">A</span> Armor (20s)</div>
+          <div class="instr-row"><span class="pu-badge" style="color:#c080ff">C</span> Cloak (20s)</div>
+        </div>
       </div>
     </div>
   </div>

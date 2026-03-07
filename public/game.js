@@ -30,6 +30,7 @@ const TANK_COLORS = ['#e94560','#4080ff','#40c080','#ffd040','#c080ff','#ff8040'
 // ─── Global State ─────────────────────────────────────────────────────────
 let ws = null, wsOpen = false, reconnectAttempts = 0;
 let myId = null, myName = '', gameId = null, isHost = false;
+let allowLateJoin = false;
 let currentPhase = 'lobby'; // local tracking
 let gameMap = null;
 let localDir = 'E', firingHeld = false, isMoving = false;
@@ -177,6 +178,7 @@ function handleServerMessage(msg) {
       if (msg.phase === 'playing') {
         gameMap = msg.map;
         mapDirty = true;
+        if (!canvas) initGameScreen(); // late-joiner path
         if (msg.snapshot) {
           applySnapshot(msg.snapshot);
           const me = (msg.snapshot.players || []).find(p => p.id === myId);
@@ -209,6 +211,11 @@ function handleServerMessage(msg) {
       showScreen('ended');
       break;
 
+    case 'late_join_changed':
+      allowLateJoin = msg.value;
+      { const el = document.getElementById('late-join-toggle'); if (el) el.checked = msg.value; }
+      break;
+
     case 'error':
       showError(msg.message);
       break;
@@ -235,6 +242,10 @@ function applySnapshot(snap) {
   }
 
   renderPlayers = snap.players || [];
+  // Assign stable colors to any players not yet in map (late-joiners or reconnects)
+  for (const p of renderPlayers) {
+    if (!playerColorMap.has(p.id)) playerColorMap.set(p.id, playerColorMap.size);
+  }
   renderProjectiles = snap.projectiles || [];
   renderPowerups = snap.powerups || [];
   if (snap.scores) { renderScores = snap.scores; updateScorePanel(snap.scores); }
@@ -408,6 +419,9 @@ function initGameScreen() {
   treeCtx = treeCanvas.getContext('2d');
 
   document.getElementById('end-game-btn-wrap').style.display = isHost ? '' : 'none';
+  const lateJoinWrap = document.getElementById('late-join-wrap');
+  lateJoinWrap.style.display = isHost ? '' : 'none';
+  document.getElementById('late-join-toggle').checked = allowLateJoin;
   document.getElementById('weapon-name').textContent = WEAPON_NAMES['laser'];
   myWeapon = 'laser';
 }
@@ -779,6 +793,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game
   document.getElementById('end-game-btn').addEventListener('click', () => {
     if (confirm('End the game?')) sendWS({ type: 'end_game' });
+  });
+
+  document.getElementById('late-join-toggle').addEventListener('change', (e) => {
+    sendWS({ type: 'toggle_late_join', value: e.target.checked });
   });
 
 

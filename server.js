@@ -11,10 +11,10 @@ const CONFIG = {
   TICK_MS: 50,
   TANK_SPEED: 120,
   TANK_SIZE: 30, TANK_HALF: 15,
-  LASER_SPEED: 300, ROCKET_SPEED: 900,
+  LASER_SPEED: 300, ROCKET_SPEED: 720,
   LASER_COOLDOWN: 300, TRIPLE_COOLDOWN: 400, ROCKET_COOLDOWN: 500,
   RESPAWN_DELAY: 3000, SPAWN_PROTECTION: 2000,
-  ARMOR_DURATION: 5000, CLOAK_DURATION: 15000,
+  ARMOR_DURATION: 20000, CLOAK_DURATION: 20000,
   POWERUP_INTERVAL: 10000, POWERUP_LIFETIME: 20000, MAX_POWERUPS: 5,
   ROCK_DENSITY: 0.05, TREE_DENSITY: 0.05,
   PORT: process.env.PORT || 3001,
@@ -37,12 +37,19 @@ function generateMap() {
   ];
   const isSpawn = (c, r) => spawnZones.some(([sc, sr]) => c >= sc && c < sc + 3 && r >= sr && r < sr + 3);
 
-  // Place rocks
+  // Place rocks — no two rocks with exactly 1 empty tile between them (orthogonally)
+  // i.e. rocks must be adjacent (distance 1) or at least 3 apart (distance 3+)
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (!isSpawn(c, r) && Math.random() < ROCK_DENSITY) {
-        tiles[r * cols + c] = TILE_ROCK;
+      if (isSpawn(c, r) || Math.random() >= ROCK_DENSITY) continue;
+      let tooClose = false;
+      for (const [dc, dr] of [[2,0],[-2,0],[0,2],[0,-2]]) {
+        const nc = c + dc, nr = r + dr;
+        if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && tiles[nr * cols + nc] === TILE_ROCK) {
+          tooClose = true; break;
+        }
       }
+      if (!tooClose) tiles[r * cols + c] = TILE_ROCK;
     }
   }
 
@@ -83,13 +90,22 @@ function generateMap() {
     }
   }
 
-  // Place trees on non-spawn blank tiles
+  // Place trees — no two trees within Chebyshev distance 1 (prevents visual overlap)
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
-      if (tiles[idx] === TILE_BLANK && !isSpawn(c, r) && Math.random() < TREE_DENSITY) {
-        tiles[idx] = TILE_TREE;
+      if (tiles[idx] !== TILE_BLANK || isSpawn(c, r) || Math.random() >= TREE_DENSITY) continue;
+      let nearTree = false;
+      outer: for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dc === 0 && dr === 0) continue;
+          const nc = c + dc, nr = r + dr;
+          if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && tiles[nr * cols + nc] === TILE_TREE) {
+            nearTree = true; break outer;
+          }
+        }
       }
+      if (!nearTree) tiles[idx] = TILE_TREE;
     }
   }
 
@@ -499,6 +515,33 @@ function handleJoin(ws, payload) {
       return;
     }
 
+    if (game.phase === 'playing' && game.allowLateJoin) {
+      // Late-join: spawn into running game
+      const playerId = randomUUID();
+      const player = createPlayer(playerId, ws, trimmedName);
+      if (game.mode === 'teams') {
+        const teamCounts = game.teams.map((_, i) =>
+          [...game.players.values()].filter(p => p.connected && p.teamIndex === i).length);
+        const min = Math.min(...teamCounts);
+        const candidates = teamCounts.reduce((a, n, i) => n === min ? [...a, i] : a, []);
+        player.teamIndex = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+      const alivePos = [...game.players.values()].filter(p => p.alive).map(p => ({ x: p.x, y: p.y }));
+      const spawn = getRandomSpawnPoint(game.map, alivePos);
+      player.x = spawn.x; player.y = spawn.y;
+      player.alive = true;
+      player.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
+      game.players.set(playerId, player);
+      wsToPlayer.set(ws, { gameId, playerId });
+      ws.send(JSON.stringify({ type: 'game_joined', gameId, playerId }));
+      ws.send(JSON.stringify({
+        type: 'sync_state', phase: 'playing',
+        map: { tiles: Array.from(game.map.tiles), cols: game.map.cols, rows: game.map.rows },
+        snapshot: buildSnapshot(game, player),
+      }));
+      return;
+    }
+
     if (game.phase !== 'lobby') {
       ws.send(JSON.stringify({ type: 'error', message: 'Game already in progress' }));
       return;
@@ -534,6 +577,7 @@ function handleJoin(ws, payload) {
       powerupTimer: null,
       nextProjectileId: 1,
       nextPowerupId: 1,
+      allowLateJoin: false,
       scoresDirty: true,
       cachedScores: null,
     };
@@ -671,6 +715,7 @@ function handlePlayAgain(ws, game, player) {
   game.powerups = [];
   game.nextProjectileId = 1;
   game.nextPowerupId = 1;
+  game.allowLateJoin = false;
   game.scoresDirty = true;
   game.cachedScores = null;
   game.map = null;
@@ -737,6 +782,12 @@ function handleChooseTeam(ws, game, player, payload) {
   broadcastLobbyUpdate(game);
 }
 
+function handleToggleLateJoin(ws, game, player, payload) {
+  if (player.id !== game.hostId) return;
+  game.allowLateJoin = !!payload.value;
+  broadcast(game, { type: 'late_join_changed', value: game.allowLateJoin });
+}
+
 function broadcastLobbyUpdate(game) {
   const players = [...game.players.values()].map(p => ({
     id: p.id, name: p.name, connected: p.connected, teamIndex: p.teamIndex,
@@ -747,6 +798,7 @@ function broadcastLobbyUpdate(game) {
     hostId: game.hostId,
     mode: game.mode,
     teams: game.teams,
+    allowLateJoin: game.allowLateJoin,
   });
 }
 
@@ -795,12 +847,13 @@ wss.on('connection', (ws) => {
     if (!player) return;
 
     switch (type) {
-      case 'setup':       handleSetup(ws, game, player, payload); break;
-      case 'start_game':  handleStartGame(ws, game, player); break;
-      case 'input':       handleInput(ws, game, player, payload); break;
-      case 'end_game':    handleEndGame(ws, game, player); break;
-      case 'play_again':  handlePlayAgain(ws, game, player); break;
-      case 'choose_team':    handleChooseTeam(ws, game, player, payload); break;
+      case 'setup':             handleSetup(ws, game, player, payload); break;
+      case 'start_game':        handleStartGame(ws, game, player); break;
+      case 'input':             handleInput(ws, game, player, payload); break;
+      case 'end_game':          handleEndGame(ws, game, player); break;
+      case 'play_again':        handlePlayAgain(ws, game, player); break;
+      case 'choose_team':       handleChooseTeam(ws, game, player, payload); break;
+      case 'toggle_late_join':  handleToggleLateJoin(ws, game, player, payload); break;
     }
   });
 
