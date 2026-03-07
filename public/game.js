@@ -592,10 +592,24 @@ function renderStaticMap() {
         const t = tiles[r * cols + c];
         const x = c * TILE_SIZE, y = r * TILE_SIZE;
         if (t === TILE_ROCK) {
-          mapCtx.fillStyle = '#555566';
-          mapCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          mapCtx.fillStyle = '#44445555';
-          mapCtx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
+          const mc = mapCtx;
+          const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+          // Drop shadow
+          mc.fillStyle = 'rgba(0,0,0,0.38)';
+          mc.beginPath(); mc.ellipse(cx + 4, cy + 5, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
+          // Side face (south-east wall — gives 2.5D height)
+          mc.fillStyle = '#303038';
+          mc.beginPath(); mc.roundRect(x + 4, y + 5, TILE_SIZE - 2, TILE_SIZE - 2, 4); mc.fill();
+          // Top face
+          mc.fillStyle = '#5c5c6e';
+          mc.strokeStyle = '#28282f'; mc.lineWidth = 1.5;
+          mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 5, 4); mc.fill(); mc.stroke();
+          // Top-face highlight (upper-left lit corner)
+          mc.fillStyle = '#7a7a8e';
+          mc.beginPath(); mc.roundRect(x + 3, y + 3, 11, 7, 2); mc.fill();
+          // Crack
+          mc.strokeStyle = 'rgba(0,0,0,0.30)'; mc.lineWidth = 1;
+          mc.beginPath(); mc.moveTo(cx - 1, cy - 5); mc.lineTo(cx + 4, cy + 1); mc.lineTo(cx + 2, cy + 6); mc.stroke();
         } else {
           mapCtx.fillStyle = (c + r) % 2 === 0 ? '#2d4a1e' : '#2a451c';
           mapCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
@@ -674,6 +688,10 @@ function shadeColor(hex, amount) {
 function drawCartoonTank(ctx, dir, color) {
   const ol = '#111';
 
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.beginPath(); ctx.ellipse(4, 5, 15, 11, 0, 0, Math.PI * 2); ctx.fill();
+
   // Tracks
   ctx.fillStyle = '#3e3e3e';
   ctx.strokeStyle = ol;
@@ -705,7 +723,12 @@ function drawCartoonTank(ctx, dir, color) {
   else if (dir === 'N') { ctx.beginPath(); ctx.roundRect(-3.5, -22,   7, 13, 3); ctx.fill(); ctx.stroke(); }
   else if (dir === 'S') { ctx.beginPath(); ctx.roundRect(-3.5,   9,   7, 13, 3); ctx.fill(); ctx.stroke(); }
 
-  // Body
+  // Body side face (2.5D depth — darker offset copy)
+  ctx.fillStyle = shadeColor(color, -70);
+  ctx.strokeStyle = ol; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-9, -9, 22, 22, 4); ctx.fill(); ctx.stroke();
+
+  // Body top face
   ctx.fillStyle = color;
   ctx.strokeStyle = ol; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 4); ctx.fill(); ctx.stroke();
