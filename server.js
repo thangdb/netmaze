@@ -214,14 +214,9 @@ function movePlayer(game, player, dt) {
 function fireWeapon(game, player) {
   const now = Date.now();
 
-  if (player.weapon === 'laser' || player.weapon === 'triple_laser') {
-    // Can only fire once all own laser projectiles have been destroyed
-    const hasActive = game.projectiles.some(p => p.ownerId === player.id);
-    if (hasActive) return;
-  } else {
-    // Rocket: time-based cooldown
-    if (now - player.lastFiredAt < CONFIG.ROCKET_COOLDOWN) return;
-  }
+  // All weapons: can only fire once own active projectiles are gone
+  const hasActive = game.projectiles.some(p => p.ownerId === player.id);
+  if (hasActive) return;
   player.lastFiredAt = now;
 
   const speed = weaponSpeed(player.weapon);
@@ -258,45 +253,54 @@ function fireWeapon(game, player) {
 }
 
 function moveProjectiles(game, dt) {
-  const { MAP_COLS: cols, MAP_ROWS: rows, TILE_SIZE } = CONFIG;
-  for (const p of game.projectiles) {
-    p.x += p.dx * dt;
-    p.y += p.dy * dt;
-  }
-  checkProjectileCollisions(game);
-}
-
-function checkProjectileCollisions(game) {
   const { MAP_COLS: cols, MAP_ROWS: rows, TILE_SIZE, TANK_HALF } = CONFIG;
+  const tiles = game.map.tiles;
+  const now = Date.now();
   const surviving = [];
+
   for (const proj of game.projectiles) {
-    const tc = Math.floor(proj.x / TILE_SIZE);
-    const tr = Math.floor(proj.y / TILE_SIZE);
-    // Out of bounds or hit rock
-    if (tc < 0 || tc >= cols || tr < 0 || tr >= rows ||
-        game.map.tiles[tr * cols + tc] === TILE_ROCK) {
-      continue; // remove projectile
-    }
+    const totalDx = proj.dx * dt;
+    const totalDy = proj.dy * dt;
+    const dist = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
+    // Step in increments no larger than half a tile to prevent skipping
+    const stepSize = TILE_SIZE * 0.45;
+    const steps = Math.max(1, Math.ceil(dist / stepSize));
+    const sx = totalDx / steps;
+    const sy = totalDy / steps;
 
-    let hit = false;
-    for (const [, player] of game.players) {
-      if (!player.alive) continue;
-      if (player.id === proj.ownerId) continue;
-      // Friendly fire: blocked in teams mode
-      if (game.mode === 'teams' && proj.ownerTeamIndex === player.teamIndex) continue;
-      // Spawn protection / armor
-      const now = Date.now();
-      if (player.spawnProtectionUntil > now || player.armorUntil > now) continue;
+    let removed = false;
+    for (let i = 0; i < steps; i++) {
+      proj.x += sx;
+      proj.y += sy;
 
-      const projHalf = proj.size / 2;
-      if (Math.abs(proj.x - player.x) < projHalf + TANK_HALF &&
-          Math.abs(proj.y - player.y) < projHalf + TANK_HALF) {
-        killPlayer(game, proj.ownerId, player);
-        hit = true;
+      const tc = Math.floor(proj.x / TILE_SIZE);
+      const tr = Math.floor(proj.y / TILE_SIZE);
+      // Out of bounds or hit rock
+      if (tc < 0 || tc >= cols || tr < 0 || tr >= rows ||
+          tiles[tr * cols + tc] === TILE_ROCK) {
+        removed = true;
         break;
       }
+
+      // Check player hits at each sub-step
+      const projHalf = proj.size / 2;
+      for (const [, player] of game.players) {
+        if (!player.alive) continue;
+        if (player.id === proj.ownerId) continue;
+        if (game.mode === 'teams' && proj.ownerTeamIndex === player.teamIndex) continue;
+        if (player.spawnProtectionUntil > now || player.armorUntil > now) continue;
+
+        if (Math.abs(proj.x - player.x) < projHalf + TANK_HALF &&
+            Math.abs(proj.y - player.y) < projHalf + TANK_HALF) {
+          killPlayer(game, proj.ownerId, player);
+          removed = true;
+          break;
+        }
+      }
+      if (removed) break;
     }
-    if (!hit) surviving.push(proj);
+
+    if (!removed) surviving.push(proj);
   }
   game.projectiles = surviving;
 }
@@ -911,11 +915,13 @@ function handleListGames(ws) {
   const list = [];
   for (const [, game] of games) {
     if (!game.isPublic || game.phase === 'ended') continue;
+    const connectedCount = [...game.players.values()].filter(p => p.connected).length;
+    if (connectedCount === 0) continue;
     const host = game.players.get(game.hostId);
     list.push({
       gameId: game.id,
       hostName: host ? host.name : 'Unknown',
-      playerCount: [...game.players.values()].filter(p => p.connected).length,
+      playerCount: connectedCount,
       mode: game.mode,
       phase: game.phase,
       hasPassword: !!game.password,

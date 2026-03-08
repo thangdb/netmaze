@@ -143,6 +143,7 @@
     <div id="score-panel">
       <div class="score-panel-header">
         <span>Scores</span>
+        <button id="sound-config-btn" class="btn btn-small" title="Sound Settings" style="padding:1px 6px;font-size:0.9rem;line-height:1.4;border-color:var(--border)">⚙</button>
       </div>
       <div id="score-panel-body"></div>
       <div class="score-panel-footer">
@@ -202,6 +203,32 @@
       <div class="btn-row">
         <button id="password-cancel-btn" class="btn btn-secondary">Cancel</button>
         <button id="password-submit-btn" class="btn btn-primary">Join</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SOUND CONFIG MODAL ──────────────────────────────────────────────── -->
+  <div id="sound-modal" class="modal-overlay" style="display:none">
+    <div class="card" style="width:340px;max-width:90vw">
+      <h2 style="margin-bottom:1.25rem">Sound Settings</h2>
+      <div class="form-group">
+        <label for="vol-music">Battle Music — <span id="vol-music-val">38%</span></label>
+        <input type="range" id="vol-music" class="density-slider" style="width:100%;margin-top:0.4rem" min="0" max="100" value="38">
+      </div>
+      <div class="form-group">
+        <label for="vol-laser">Laser Sound — <span id="vol-laser-val">80%</span></label>
+        <input type="range" id="vol-laser" class="density-slider" style="width:100%;margin-top:0.4rem" min="0" max="100" value="80">
+      </div>
+      <div class="form-group">
+        <label for="vol-rocket">Rocket Sound — <span id="vol-rocket-val">80%</span></label>
+        <input type="range" id="vol-rocket" class="density-slider" style="width:100%;margin-top:0.4rem" min="0" max="100" value="80">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label for="vol-enemy">Enemy Volume — <span id="vol-enemy-val">10%</span></label>
+        <input type="range" id="vol-enemy" class="density-slider" style="width:100%;margin-top:0.4rem" min="0" max="100" value="10">
+      </div>
+      <div class="btn-row" style="margin-top:1.25rem">
+        <button id="sound-modal-close" class="btn btn-primary">Done</button>
       </div>
     </div>
   </div>
