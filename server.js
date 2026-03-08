@@ -567,6 +567,7 @@ function handleJoin(ws, payload) {
           type: 'sync_state',
           phase: game.phase,
           map: { tiles: Array.from(game.map.tiles), cols: game.map.cols, rows: game.map.rows },
+          theme: game.theme,
           snapshot: buildSnapshot(game, existingPlayer),
         }));
       } else {
@@ -598,6 +599,7 @@ function handleJoin(ws, payload) {
       ws.send(JSON.stringify({
         type: 'sync_state', phase: 'playing',
         map: { tiles: Array.from(game.map.tiles), cols: game.map.cols, rows: game.map.rows },
+        theme: game.theme,
         snapshot: buildSnapshot(game, player),
       }));
       return;
@@ -641,6 +643,7 @@ function handleJoin(ws, payload) {
       allowLateJoin: true,
       rockDensity: CONFIG.ROCK_DENSITY,
       treeDensity: CONFIG.TREE_DENSITY,
+      theme: 'forest',
       isPublic: true,
       password: '',
       endType: 'time', // 'unlimited' | 'time' | 'score'
@@ -725,6 +728,8 @@ function handleSetup(ws, game, player, payload) {
   if (payload.teams) game.teams = payload.teams;
   if (typeof payload.rockDensity === 'number') game.rockDensity = Math.max(0, Math.min(0.10, payload.rockDensity));
   if (typeof payload.treeDensity === 'number') game.treeDensity = Math.max(0, Math.min(0.20, payload.treeDensity));
+  const VALID_THEMES = ['forest','desert','snow','city','industrial','lava','mario'];
+  if (typeof payload.theme === 'string' && VALID_THEMES.includes(payload.theme)) game.theme = payload.theme;
   if (typeof payload.isPublic === 'boolean') game.isPublic = payload.isPublic;
   if (typeof payload.password === 'string') game.password = payload.password.slice(0, 30);
   if (['unlimited','time','score'].includes(payload.endType)) game.endType = payload.endType;
@@ -797,7 +802,7 @@ function handleStartGame(ws, game, player) {
     weapon: p.weapon, score: p.score, alive: p.alive,
   }));
 
-  broadcast(game, { type: 'game_start', map: mapPayload, players: playerList });
+  broadcast(game, { type: 'game_start', map: mapPayload, players: playerList, theme: game.theme });
 
   game.tickInterval = setInterval(() => gameTick(game), CONFIG.TICK_MS);
   game.powerupTimer = setInterval(() => spawnPowerup(game), CONFIG.POWERUP_INTERVAL);
@@ -949,6 +954,7 @@ function broadcastLobbyUpdate(game) {
     allowLateJoin: game.allowLateJoin,
     rockDensity: game.rockDensity,
     treeDensity: game.treeDensity,
+    theme: game.theme,
     isPublic: game.isPublic,
     hasPassword: !!game.password,
     endType: game.endType,

@@ -36,6 +36,7 @@ let gameMap = null;
 let localDir = 'E', firingHeld = false, isMoving = false;
 let mode = 'ffa', teams = [];
 let rockDensity = 2, treeDensity = 2; // percentages, synced from server
+let mapTheme = 'forest';
 let gameIsPublic = true, gamePassword = '';
 let endType = 'time', timeLimitMs = 10 * 60 * 1000, scoreLimit = 30;
 let hostId = null;
@@ -559,6 +560,7 @@ function handleServerMessage(msg) {
       teams = msg.teams || [];
       if (typeof msg.rockDensity === 'number') rockDensity = Math.round(msg.rockDensity * 100);
       if (typeof msg.treeDensity === 'number') treeDensity = Math.round(msg.treeDensity * 100);
+      if (typeof msg.theme === 'string') { mapTheme = msg.theme; const ts = document.getElementById('theme-select'); if (ts) ts.value = msg.theme; updateDensityLabels(msg.theme); }
       if (typeof msg.isPublic === 'boolean') gameIsPublic = msg.isPublic;
       if (msg.endType) endType = msg.endType;
       if (typeof msg.timeLimitMs === 'number') timeLimitMs = msg.timeLimitMs;
@@ -569,6 +571,7 @@ function handleServerMessage(msg) {
     case 'game_start':
       currentPhase = 'playing';
       gameMap = msg.map;
+      if (typeof msg.theme === 'string') mapTheme = msg.theme;
       mapDirty = true;
       renderPlayers = msg.players;
       renderProjectiles = [];
@@ -589,6 +592,7 @@ function handleServerMessage(msg) {
       currentPhase = msg.phase;
       if (msg.phase === 'playing') {
         gameMap = msg.map;
+        if (typeof msg.theme === 'string') mapTheme = msg.theme;
         mapDirty = true;
         if (!canvas) initGameScreen(); // late-joiner path
         prevProjectiles = [];
@@ -889,8 +893,25 @@ function renderLobby(players, hId, gameMode, gameTeams) {
 }
 
 
+const THEME_DENSITY_LABELS = {
+  forest:     { rock: 'Rocks',     tree: 'Trees' },
+  desert:     { rock: 'Rocks',     tree: 'Cacti' },
+  snow:       { rock: 'Rocks',     tree: 'Trees' },
+  city:       { rock: 'Buildings', tree: 'Dead Trees' },
+  industrial: { rock: 'Crates',    tree: 'Wire Fences' },
+  lava:       { rock: 'Volcanoes', tree: 'Burned Trees' },
+  mario:      { rock: 'Brick Blocks', tree: 'Mushrooms' },
+};
+function updateDensityLabels(theme) {
+  const labels = THEME_DENSITY_LABELS[theme] || THEME_DENSITY_LABELS.forest;
+  const rl = document.getElementById('rock-density-label');
+  const tl = document.getElementById('tree-density-label');
+  if (rl) rl.textContent = labels.rock;
+  if (tl) tl.textContent = labels.tree;
+}
+
 function sendSetup() {
-  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100, isPublic: gameIsPublic, password: gamePassword, endType, timeLimitMs, scoreLimit });
+  sendWS({ type: 'setup', mode, teams, rockDensity: rockDensity / 100, treeDensity: treeDensity / 100, theme: mapTheme, isPublic: gameIsPublic, password: gamePassword, endType, timeLimitMs, scoreLimit });
 }
 
 function updateEndValueUI() {
@@ -1027,85 +1048,440 @@ function initGameScreen() {
   myWeapon = 'laser';
 }
 
+// ─── Theme Drawing Helpers ────────────────────────────────────────────────
+function drawRock_forest(mc, x, y) {
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  mc.fillStyle = 'rgba(0,0,0,0.38)';
+  mc.beginPath(); mc.ellipse(cx + 4, cy + 5, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
+  mc.fillStyle = '#303038';
+  mc.beginPath(); mc.roundRect(x + 4, y + 5, TILE_SIZE - 2, TILE_SIZE - 2, 4); mc.fill();
+  mc.fillStyle = '#5c5c6e'; mc.strokeStyle = '#28282f'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 5, 4); mc.fill(); mc.stroke();
+  mc.fillStyle = '#7a7a8e';
+  mc.beginPath(); mc.roundRect(x + 3, y + 3, 11, 7, 2); mc.fill();
+  mc.strokeStyle = 'rgba(0,0,0,0.30)'; mc.lineWidth = 1;
+  mc.beginPath(); mc.moveTo(cx - 1, cy - 5); mc.lineTo(cx + 4, cy + 1); mc.lineTo(cx + 2, cy + 6); mc.stroke();
+}
+
+function drawTree_forest(tc, x, y) {
+  tc.fillStyle = 'rgba(0,0,0,0.28)';
+  tc.beginPath(); tc.ellipse(x + 5, y + 8, 18, 11, 0, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = '#1c5610'; tc.strokeStyle = '#0e3008'; tc.lineWidth = 1.5;
+  tc.beginPath(); tc.arc(x, y, 18, 0, Math.PI * 2); tc.fill(); tc.stroke();
+  tc.fillStyle = '#2e8c1a';
+  tc.beginPath(); tc.arc(x, y - 1, 15, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = '#42b424';
+  tc.beginPath(); tc.arc(x - 4, y - 5, 11, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = '#6cd836';
+  tc.beginPath(); tc.arc(x - 6, y - 8, 6, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = 'rgba(210,255,170,0.50)';
+  tc.beginPath(); tc.arc(x - 8, y - 11, 3, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = 'rgba(0,35,0,0.22)';
+  tc.beginPath(); tc.arc(x + 9, y + 4, 7, 0, Math.PI * 2); tc.fill();
+  tc.beginPath(); tc.arc(x - 7, y + 9, 5, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = '#5a3010'; tc.strokeStyle = '#3a1e08'; tc.lineWidth = 1;
+  tc.beginPath(); tc.ellipse(x, y + 16, 3, 2, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
+}
+
+// Desert
+function drawGround_desert(mc, x, y, c, r) {
+  // Elegant dark sand — subtle contrast between two warm tones
+  mc.fillStyle = (c + r) % 2 === 0 ? '#7a5e32' : '#6e5228';
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  // small pebble scatter
+  const seed = (c * 7 + r * 13) % 17;
+  if (seed < 4) {
+    mc.fillStyle = 'rgba(80,50,15,0.40)';
+    mc.beginPath(); mc.ellipse(x + 6 + seed * 5, y + 8 + (seed % 3) * 6, 2, 1.5, seed * 0.5, 0, Math.PI * 2); mc.fill();
+    mc.beginPath(); mc.ellipse(x + 20 + seed % 5, y + 18 + seed % 5, 1.5, 1, seed * 0.3, 0, Math.PI * 2); mc.fill();
+  }
+}
+function drawRock_desert(mc, x, y) {
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  mc.fillStyle = 'rgba(0,0,0,0.30)';
+  mc.beginPath(); mc.ellipse(cx + 4, cy + 5, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
+  mc.fillStyle = '#6a3c14';
+  mc.beginPath(); mc.roundRect(x + 4, y + 5, TILE_SIZE - 2, TILE_SIZE - 2, 5); mc.fill();
+  mc.fillStyle = '#9a6028'; mc.strokeStyle = '#5a2e0e'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 5, 5); mc.fill(); mc.stroke();
+  mc.fillStyle = '#b87838';
+  mc.beginPath(); mc.roundRect(x + 3, y + 3, 11, 7, 2); mc.fill();
+  mc.strokeStyle = 'rgba(0,0,0,0.22)'; mc.lineWidth = 1;
+  mc.beginPath(); mc.moveTo(cx, cy - 5); mc.lineTo(cx + 5, cy + 2); mc.lineTo(cx + 3, cy + 6); mc.stroke();
+}
+function drawTree_desert(tc, x, y) {
+  // Cactus
+  tc.fillStyle = 'rgba(0,0,0,0.25)';
+  tc.beginPath(); tc.ellipse(x + 4, y + 18, 10, 5, 0, 0, Math.PI * 2); tc.fill();
+  // Body
+  tc.fillStyle = '#2a7020'; tc.strokeStyle = '#1a4a12'; tc.lineWidth = 1.5;
+  tc.beginPath(); tc.roundRect(x - 5, y - 14, 10, 30, 4); tc.fill(); tc.stroke();
+  // Left arm
+  tc.beginPath(); tc.roundRect(x - 14, y - 6, 10, 6, 3); tc.fill(); tc.stroke();
+  tc.beginPath(); tc.roundRect(x - 14, y - 12, 6, 8, 3); tc.fill(); tc.stroke();
+  // Right arm
+  tc.beginPath(); tc.roundRect(x + 4, y - 4, 10, 6, 3); tc.fill(); tc.stroke();
+  tc.beginPath(); tc.roundRect(x + 8, y - 10, 6, 8, 3); tc.fill(); tc.stroke();
+  // Top nub + highlight
+  tc.fillStyle = '#3a9028';
+  tc.beginPath(); tc.arc(x, y - 14, 5, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = 'rgba(120,220,80,0.40)';
+  tc.beginPath(); tc.arc(x - 2, y - 16, 2.5, 0, Math.PI * 2); tc.fill();
+  // Spines
+  tc.strokeStyle = 'rgba(255,255,200,0.55)'; tc.lineWidth = 0.8;
+  for (const [ox, oy] of [[-5,0],[-5,8],[-5,-6],[5,2],[5,-4],[5,10],[0,-14]]) {
+    tc.beginPath(); tc.moveTo(x + ox, y + oy); tc.lineTo(x + ox - (ox < 0 ? 3 : -3), y + oy - 1); tc.stroke();
+  }
+}
+
+// Snow
+function drawGround_snow(mc, x, y, c, r) {
+  mc.fillStyle = (c + r) % 2 === 0 ? '#3a5e2a' : '#365626';
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  // Use a high-variance hash for visually random, non-grid placement
+  const h = (c * 1619 + r * 1283 + c * r * 37) % 100;
+  if (h < 35) {
+    const ox = (c * 947 + r * 631) % 22;
+    const oy = (c * 541 + r * 811) % 22;
+    const rx = 4 + (c * 317 + r * 491) % 6;
+    const ry = 2 + (c * 223 + r * 379) % 4;
+    mc.fillStyle = 'rgba(225,238,255,0.60)';
+    mc.beginPath(); mc.ellipse(x + 3 + ox, y + 3 + oy, rx, ry, (h % 6) * 0.5, 0, Math.PI * 2); mc.fill();
+    if (h < 18) {
+      const ox2 = (c * 743 + r * 1031) % 20;
+      const oy2 = (c * 599 + r * 719) % 20;
+      mc.beginPath(); mc.ellipse(x + 4 + ox2, y + 4 + oy2, 3 + h % 3, 2, (h % 4) * 0.4, 0, Math.PI * 2); mc.fill();
+    }
+  }
+}
+function drawRock_snow(mc, x, y) {
+  drawRock_forest(mc, x, y);
+  // Snow cap
+  mc.fillStyle = 'rgba(230,240,255,0.85)';
+  mc.beginPath(); mc.ellipse(x + TILE_SIZE / 2, y + 4, 9, 5, 0, 0, Math.PI * 2); mc.fill();
+  mc.beginPath(); mc.ellipse(x + TILE_SIZE / 2 - 4, y + 6, 5, 3, -0.3, 0, Math.PI * 2); mc.fill();
+}
+function drawTree_snow(tc, x, y) {
+  drawTree_forest(tc, x, y);
+  // Snow patches over canopy
+  tc.fillStyle = 'rgba(220,235,255,0.70)';
+  tc.beginPath(); tc.ellipse(x - 3, y - 7, 8, 5, -0.3, 0, Math.PI * 2); tc.fill();
+  tc.beginPath(); tc.ellipse(x + 6, y - 1, 6, 4, 0.4, 0, Math.PI * 2); tc.fill();
+  tc.beginPath(); tc.ellipse(x - 7, y + 3, 5, 3, 0.2, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = 'rgba(240,248,255,0.50)';
+  tc.beginPath(); tc.ellipse(x, y - 12, 4, 3, 0, 0, Math.PI * 2); tc.fill();
+}
+
+// City Ruins
+function drawGround_city(mc, x, y, c, r) {
+  const seed = (c * 13 + r * 9) % 23;
+  mc.fillStyle = seed < 8 ? '#5a5a52' : (seed < 14 ? '#545450' : '#4e4e4a');
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  // Cracks only (no vertical stripe lines)
+  if (seed < 6) {
+    mc.strokeStyle = 'rgba(30,30,28,0.45)'; mc.lineWidth = 1;
+    mc.beginPath(); mc.moveTo(x + 4 + seed, y + 2); mc.lineTo(x + 10 + seed, y + 14); mc.stroke();
+    mc.beginPath(); mc.moveTo(x + 18, y + 8 + seed % 5); mc.lineTo(x + 28, y + 20 + seed % 4); mc.stroke();
+  }
+}
+function drawRock_city(mc, x, y, c, r) {
+  // Destroyed building — light concrete appearance
+  const seed = (c * 17 + r * 11) % 3;
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  // Drop shadow
+  mc.fillStyle = 'rgba(0,0,0,0.40)';
+  mc.beginPath(); mc.ellipse(cx + 3, cy + 5, 14, 8, 0.15, 0, Math.PI * 2); mc.fill();
+  // Side face (south/east wall in 2.5D)
+  mc.fillStyle = '#8a8a82';
+  mc.beginPath(); mc.roundRect(x + 3, y + 4, TILE_SIZE - 4, TILE_SIZE - 3, 2); mc.fill();
+  // Top face — light concrete
+  const topColor = ['#d0cec8','#c8c6c0','#cccac4'][seed];
+  mc.fillStyle = topColor; mc.strokeStyle = '#6a6860'; mc.lineWidth = 1;
+  mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 5, TILE_SIZE - 8, 2); mc.fill(); mc.stroke();
+  // Window recess (dark rectangle)
+  mc.fillStyle = 'rgba(30,28,24,0.60)';
+  if (seed === 0) { mc.beginPath(); mc.roundRect(x + 7, y + 4, 7, 6, 1); mc.fill(); mc.beginPath(); mc.roundRect(x + 18, y + 5, 6, 5, 1); mc.fill(); }
+  if (seed === 1) { mc.beginPath(); mc.roundRect(x + 5, y + 4, 9, 7, 1); mc.fill(); }
+  if (seed === 2) { mc.beginPath(); mc.roundRect(x + 8, y + 3, 6, 6, 1); mc.fill(); mc.beginPath(); mc.roundRect(x + 17, y + 4, 7, 6, 1); mc.fill(); }
+  // Broken wall notch (chunk missing from top)
+  mc.fillStyle = 'rgba(0,0,0,0.50)';
+  if (seed === 0) { mc.beginPath(); mc.moveTo(x + 19, y + 1); mc.lineTo(x + 27, y + 1); mc.lineTo(x + 24, y + 7); mc.closePath(); mc.fill(); }
+  if (seed === 1) { mc.beginPath(); mc.moveTo(x + 5, y + 1); mc.lineTo(x + 13, y + 1); mc.lineTo(x + 9, y + 8); mc.closePath(); mc.fill(); }
+  if (seed === 2) { mc.beginPath(); mc.moveTo(x + 21, y + 1); mc.lineTo(x + 28, y + 1); mc.lineTo(x + 26, y + 6); mc.closePath(); mc.fill(); }
+  // Highlight on top edge
+  mc.fillStyle = 'rgba(255,255,255,0.30)';
+  mc.beginPath(); mc.roundRect(x + 2, y + 2, TILE_SIZE - 8, 3, 1); mc.fill();
+  // Crack
+  mc.strokeStyle = 'rgba(0,0,0,0.32)'; mc.lineWidth = 1;
+  mc.beginPath(); mc.moveTo(cx - 2, cy - 5); mc.lineTo(cx + 3, cy + 1); mc.lineTo(cx + 1, cy + 5); mc.stroke();
+}
+function drawTree_city(tc, x, y) {
+  // Dead/bare tree
+  tc.fillStyle = 'rgba(0,0,0,0.22)';
+  tc.beginPath(); tc.ellipse(x + 4, y + 18, 10, 5, 0, 0, Math.PI * 2); tc.fill();
+  // Trunk
+  tc.strokeStyle = '#3a3028'; tc.lineWidth = 5;
+  tc.beginPath(); tc.moveTo(x, y + 18); tc.lineTo(x, y - 6); tc.stroke();
+  tc.lineWidth = 4;
+  tc.beginPath(); tc.moveTo(x, y - 6); tc.lineTo(x - 8, y - 16); tc.stroke();
+  tc.beginPath(); tc.moveTo(x, y - 6); tc.lineTo(x + 7, y - 14); tc.stroke();
+  tc.lineWidth = 2.5;
+  tc.beginPath(); tc.moveTo(x - 8, y - 16); tc.lineTo(x - 13, y - 22); tc.stroke();
+  tc.beginPath(); tc.moveTo(x - 8, y - 16); tc.lineTo(x - 4, y - 22); tc.stroke();
+  tc.beginPath(); tc.moveTo(x + 7, y - 14); tc.lineTo(x + 13, y - 21); tc.stroke();
+  tc.beginPath(); tc.moveTo(x + 7, y - 14); tc.lineTo(x + 3, y - 21); tc.stroke();
+  tc.lineWidth = 1.5;
+  tc.strokeStyle = '#302820';
+  tc.beginPath(); tc.moveTo(x - 2, y + 2); tc.lineTo(x + 6, y - 4); tc.stroke();
+  tc.beginPath(); tc.moveTo(x - 1, y - 2); tc.lineTo(x - 8, y - 8); tc.stroke();
+}
+
+// Industrial
+function drawGround_industrial(mc, x, y, c, r) {
+  mc.fillStyle = (c + r) % 2 === 0 ? '#636360' : '#5a5a58';
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  // Cement panel lines
+  mc.strokeStyle = 'rgba(35,35,32,0.35)'; mc.lineWidth = 1;
+  mc.beginPath(); mc.moveTo(x, y + TILE_SIZE); mc.lineTo(x + TILE_SIZE, y + TILE_SIZE); mc.stroke();
+  mc.beginPath(); mc.moveTo(x + TILE_SIZE, y); mc.lineTo(x + TILE_SIZE, y + TILE_SIZE); mc.stroke();
+  // Corner bolt
+  mc.fillStyle = 'rgba(30,30,28,0.55)';
+  mc.beginPath(); mc.arc(x + 2, y + 2, 1.5, 0, Math.PI * 2); mc.fill();
+}
+function drawRock_industrial(mc, x, y, c, r) {
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  // Wooden crate
+  mc.fillStyle = 'rgba(0,0,0,0.38)';
+  mc.beginPath(); mc.ellipse(cx + 3, cy + 5, 12, 8, 0.2, 0, Math.PI * 2); mc.fill();
+  mc.fillStyle = '#7a5828';
+  mc.beginPath(); mc.roundRect(x + 3, y + 5, TILE_SIZE - 4, TILE_SIZE - 4, 2); mc.fill();
+  mc.fillStyle = '#9a7040'; mc.strokeStyle = '#5a3c18'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 6, 2); mc.fill(); mc.stroke();
+  // Cross banding
+  mc.strokeStyle = '#5a3c18'; mc.lineWidth = 2;
+  mc.beginPath(); mc.moveTo(x + 1, cy - 2); mc.lineTo(x + TILE_SIZE - 4, cy - 2); mc.stroke();
+  mc.beginPath(); mc.moveTo(cx - 1, y + 1); mc.lineTo(cx - 1, y + TILE_SIZE - 6); mc.stroke();
+  mc.fillStyle = '#5a3c18';
+  for (const [bx, by] of [[x+2,y+2],[x+TILE_SIZE-6,y+2],[x+2,y+TILE_SIZE-8],[x+TILE_SIZE-6,y+TILE_SIZE-8]]) {
+    mc.beginPath(); mc.arc(bx, by, 2, 0, Math.PI * 2); mc.fill();
+  }
+  // Highlight on top edge
+  mc.fillStyle = 'rgba(255,220,160,0.25)';
+  mc.beginPath(); mc.roundRect(x + 2, y + 2, TILE_SIZE - 7, 3, 1); mc.fill();
+}
+function drawTree_industrial(tc, x, y) {
+  // Wire fence patch / chain-link
+  tc.fillStyle = 'rgba(0,0,0,0.22)';
+  tc.beginPath(); tc.ellipse(x + 4, y + 18, 12, 6, 0, 0, Math.PI * 2); tc.fill();
+  // Fence posts
+  tc.fillStyle = '#888878'; tc.strokeStyle = '#444438'; tc.lineWidth = 1.5;
+  for (const px of [x - 10, x, x + 10]) {
+    tc.fillStyle = '#888878';
+    tc.beginPath(); tc.roundRect(px - 2, y - 16, 4, 32, 1); tc.fill(); tc.stroke();
+    tc.fillStyle = '#aaa890';
+    tc.beginPath(); tc.arc(px, y - 16, 3, 0, Math.PI * 2); tc.fill(); tc.stroke();
+  }
+  // Horizontal rails
+  tc.strokeStyle = '#6a6a5a'; tc.lineWidth = 2;
+  for (const ry of [y - 12, y - 2, y + 8]) {
+    tc.beginPath(); tc.moveTo(x - 12, ry); tc.lineTo(x + 12, ry); tc.stroke();
+  }
+  // Diagonal wire cross-hatch
+  tc.strokeStyle = 'rgba(160,160,140,0.55)'; tc.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    tc.beginPath(); tc.moveTo(x - 12, y - 14 + i * 8); tc.lineTo(x + 12, y + 2 + i * 8); tc.stroke();
+    tc.beginPath(); tc.moveTo(x + 12, y - 14 + i * 8); tc.lineTo(x - 12, y + 2 + i * 8); tc.stroke();
+  }
+}
+
+// Lava
+function drawGround_lava(mc, x, y, c, r) {
+  mc.fillStyle = (c + r) % 2 === 0 ? '#3a2010' : '#322018';
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  const seed = (c * 7 + r * 17) % 13;
+  if (seed < 3) {
+    // Ember glow spot
+    const gx = x + 8 + seed * 6, gy = y + 10 + (seed % 3) * 5;
+    const g = mc.createRadialGradient(gx, gy, 0, gx, gy, 6);
+    g.addColorStop(0, 'rgba(255,140,0,0.45)');
+    g.addColorStop(1, 'rgba(255,60,0,0)');
+    mc.fillStyle = g;
+    mc.beginPath(); mc.arc(gx, gy, 6, 0, Math.PI * 2); mc.fill();
+  }
+}
+function drawRock_lava(mc, x, y) {
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  mc.fillStyle = 'rgba(0,0,0,0.45)';
+  mc.beginPath(); mc.ellipse(cx + 4, cy + 6, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
+  // Volcano cone shadow
+  mc.fillStyle = '#1a1212';
+  mc.beginPath(); mc.ellipse(cx + 2, cy + 4, 13, 9, 0, 0, Math.PI * 2); mc.fill();
+  // Cone body
+  mc.fillStyle = '#2e2018'; mc.strokeStyle = '#120e0a'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.roundRect(x + 3, y + 8, TILE_SIZE - 6, TILE_SIZE - 10, 3); mc.fill(); mc.stroke();
+  // Cone top
+  mc.fillStyle = '#3a2820';
+  mc.beginPath(); mc.moveTo(x + 2, y + 10); mc.lineTo(cx, y + 1); mc.lineTo(x + TILE_SIZE - 2, y + 10); mc.closePath(); mc.fill();
+  // Lava pool in crater
+  const lg = mc.createRadialGradient(cx, y + 6, 1, cx, y + 6, 7);
+  lg.addColorStop(0, 'rgba(255,220,0,0.95)');
+  lg.addColorStop(0.4, 'rgba(255,100,0,0.90)');
+  lg.addColorStop(1, 'rgba(180,30,0,0.60)');
+  mc.fillStyle = lg;
+  mc.beginPath(); mc.ellipse(cx, y + 7, 6, 5, 0, 0, Math.PI * 2); mc.fill();
+  // Lava drips on sides
+  mc.fillStyle = 'rgba(255,80,0,0.55)';
+  mc.beginPath(); mc.ellipse(cx - 5, y + 12, 3, 2, -0.3, 0, Math.PI * 2); mc.fill();
+  mc.beginPath(); mc.ellipse(cx + 5, y + 11, 2.5, 2, 0.3, 0, Math.PI * 2); mc.fill();
+  // Glow halo
+  const hg = mc.createRadialGradient(cx, cy - 2, 3, cx, cy - 2, 16);
+  hg.addColorStop(0, 'rgba(255,120,0,0.20)');
+  hg.addColorStop(1, 'rgba(255,60,0,0)');
+  mc.fillStyle = hg;
+  mc.beginPath(); mc.arc(cx, cy - 2, 16, 0, Math.PI * 2); mc.fill();
+}
+function drawTree_lava(tc, x, y) {
+  // Burned/charcoal tree
+  tc.fillStyle = 'rgba(0,0,0,0.30)';
+  tc.beginPath(); tc.ellipse(x + 4, y + 18, 14, 6, 0, 0, Math.PI * 2); tc.fill();
+  // Charred outer canopy
+  tc.fillStyle = '#1a1410'; tc.strokeStyle = '#0e0c08'; tc.lineWidth = 1.5;
+  tc.beginPath(); tc.arc(x, y, 17, 0, Math.PI * 2); tc.fill(); tc.stroke();
+  // Slightly lighter inner canopy
+  tc.fillStyle = '#2a2018';
+  tc.beginPath(); tc.arc(x, y - 1, 13, 0, Math.PI * 2); tc.fill();
+  // Ember glow highlights
+  tc.fillStyle = 'rgba(255,120,0,0.45)';
+  tc.beginPath(); tc.arc(x - 5, y - 6, 5, 0, Math.PI * 2); tc.fill();
+  tc.fillStyle = 'rgba(255,60,0,0.30)';
+  tc.beginPath(); tc.arc(x + 6, y + 3, 4, 0, Math.PI * 2); tc.fill();
+  // Bright ember sparks
+  tc.fillStyle = 'rgba(255,200,0,0.70)';
+  for (const [ox, oy] of [[-8,-10],[4,-12],[-3,-14],[7,-5],[-10,-3]]) {
+    tc.beginPath(); tc.arc(x + ox, y + oy, 1.2, 0, Math.PI * 2); tc.fill();
+  }
+  // Trunk stub
+  tc.fillStyle = '#1e1810'; tc.strokeStyle = '#0e0c08'; tc.lineWidth = 1;
+  tc.beginPath(); tc.ellipse(x, y + 16, 3, 2, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
+}
+
+// Super Mario
+function drawGround_mario(mc, x, y, c, r) {
+  mc.fillStyle = (c + r) % 2 === 0 ? '#2d4a1e' : '#2a451c';
+  mc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+}
+function drawRock_mario(mc, x, y) {
+  // Dark red brick block — 2.5D top-down
+  const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
+  // Drop shadow
+  mc.fillStyle = 'rgba(0,0,0,0.45)';
+  mc.beginPath(); mc.ellipse(cx + 4, cy + 5, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
+  // Side face (2.5D south-east wall — deep dark red)
+  mc.fillStyle = '#4a0c04';
+  mc.beginPath(); mc.roundRect(x + 4, y + 5, TILE_SIZE - 2, TILE_SIZE - 2, 2); mc.fill();
+  // Top face — dark brick red
+  mc.fillStyle = '#7a1a0c'; mc.strokeStyle = '#3a0804'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 6, 2); mc.fill(); mc.stroke();
+  // Mortar lines on top face — cream/tan colour
+  mc.strokeStyle = '#c8a870'; mc.lineWidth = 1.5;
+  mc.beginPath(); mc.moveTo(x + 1, cy - 3); mc.lineTo(x + TILE_SIZE - 4, cy - 3); mc.stroke();
+  mc.beginPath(); mc.moveTo(cx - 1, y + 1); mc.lineTo(cx - 1, cy - 3); mc.stroke();
+  mc.beginPath(); mc.moveTo(cx + 5, cy - 3); mc.lineTo(cx + 5, y + TILE_SIZE - 6); mc.stroke();
+  // Top-left highlight
+  mc.fillStyle = 'rgba(220,100,80,0.28)';
+  mc.beginPath(); mc.roundRect(x + 2, y + 2, 10, 5, 1); mc.fill();
+}
+function drawTree_mario(tc, x, y, c, r) {
+  // Mario mushroom — top-down 2.5D, colorful varieties
+  const SHROOM_COLORS = [
+    { cap: '#d81808', light: '#f03020', dark: '#7a0c08' }, // red
+    { cap: '#1890d8', light: '#20a8f0', dark: '#0c5080' }, // blue (1-UP style)
+    { cap: '#e8a008', light: '#f8c020', dark: '#905808' }, // yellow
+    { cap: '#18b030', light: '#28d040', dark: '#0a6018' }, // green
+    { cap: '#c018c0', light: '#e030e0', dark: '#700870' }, // purple
+  ];
+  const col = SHROOM_COLORS[(c * 7 + r * 11) % SHROOM_COLORS.length];
+  // Drop shadow
+  tc.fillStyle = 'rgba(0,0,0,0.30)';
+  tc.beginPath(); tc.ellipse(x + 4, y + 5, 17, 12, 0, 0, Math.PI * 2); tc.fill();
+  // Stem peeking at south base
+  tc.fillStyle = '#e8e0c0'; tc.strokeStyle = '#b0a880'; tc.lineWidth = 1;
+  tc.beginPath(); tc.ellipse(x, y + 12, 5, 3.5, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
+  // Cap underside rim (2.5D depth)
+  tc.fillStyle = col.dark;
+  tc.beginPath(); tc.ellipse(x, y + 2, 16, 12, 0, 0, Math.PI * 2); tc.fill();
+  // Cap top face
+  tc.fillStyle = col.cap; tc.strokeStyle = col.dark; tc.lineWidth = 1.5;
+  tc.beginPath(); tc.ellipse(x, y - 1, 15, 11, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
+  // Light side upper-left
+  tc.fillStyle = col.light;
+  tc.beginPath(); tc.ellipse(x - 4, y - 4, 10, 7, -0.3, 0, Math.PI * 2); tc.fill();
+  // White spots
+  tc.fillStyle = '#ffffff';
+  for (const [ox, oy, sr] of [[0,-6,3.2],[-7,-1,2.8],[6,-1,2.8],[-3,5,2.2],[5,5,2.2]]) {
+    tc.beginPath(); tc.arc(x + ox, y + oy, sr, 0, Math.PI * 2); tc.fill();
+  }
+  // Specular glint
+  tc.fillStyle = 'rgba(255,255,255,0.35)';
+  tc.beginPath(); tc.ellipse(x - 6, y - 6, 4, 3, -0.5, 0, Math.PI * 2); tc.fill();
+}
+
 // ─── Static Map Rendering ─────────────────────────────────────────────────
 function renderStaticMap() {
   if (!gameMap) return;
   const { tiles, cols, rows } = gameMap;
+  const theme = mapTheme || 'forest';
 
-  {
-    mapCtx.fillStyle = '#2d4a1e';
-    mapCtx.fillRect(0, 0, 992, 736);
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const t = tiles[r * cols + c];
-        const x = c * TILE_SIZE, y = r * TILE_SIZE;
-        if (t === TILE_ROCK) {
-          const mc = mapCtx;
-          const cx = x + TILE_SIZE / 2, cy = y + TILE_SIZE / 2;
-          // Drop shadow
-          mc.fillStyle = 'rgba(0,0,0,0.38)';
-          mc.beginPath(); mc.ellipse(cx + 4, cy + 5, 13, 9, 0.2, 0, Math.PI * 2); mc.fill();
-          // Side face (south-east wall — gives 2.5D height)
-          mc.fillStyle = '#303038';
-          mc.beginPath(); mc.roundRect(x + 4, y + 5, TILE_SIZE - 2, TILE_SIZE - 2, 4); mc.fill();
-          // Top face
-          mc.fillStyle = '#5c5c6e';
-          mc.strokeStyle = '#28282f'; mc.lineWidth = 1.5;
-          mc.beginPath(); mc.roundRect(x + 1, y + 1, TILE_SIZE - 4, TILE_SIZE - 5, 4); mc.fill(); mc.stroke();
-          // Top-face highlight (upper-left lit corner)
-          mc.fillStyle = '#7a7a8e';
-          mc.beginPath(); mc.roundRect(x + 3, y + 3, 11, 7, 2); mc.fill();
-          // Crack
-          mc.strokeStyle = 'rgba(0,0,0,0.30)'; mc.lineWidth = 1;
-          mc.beginPath(); mc.moveTo(cx - 1, cy - 5); mc.lineTo(cx + 4, cy + 1); mc.lineTo(cx + 2, cy + 6); mc.stroke();
-        } else {
-          mapCtx.fillStyle = (c + r) % 2 === 0 ? '#2d4a1e' : '#2a451c';
-          mapCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        }
+  // Draw ground and rock tiles
+  mapCtx.fillStyle = { forest:'#2d4a1e', desert:'#7a5e32', snow:'#3a5e2a', city:'#545450', industrial:'#6a6a62', lava:'#3a2010', mario:'#2d4a1e' }[theme] || '#2d4a1e';
+  mapCtx.fillRect(0, 0, 992, 736);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = tiles[r * cols + c];
+      const x = c * TILE_SIZE, y = r * TILE_SIZE;
+      if (t === TILE_ROCK) {
+        // Draw ground under rock first
+        if (theme === 'forest' || theme === 'snow') { mapCtx.fillStyle = (c + r) % 2 === 0 ? '#2d4a1e' : '#2a451c'; mapCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE); }
+        else if (theme === 'desert') drawGround_desert(mapCtx, x, y, c, r);
+        else if (theme === 'city') drawGround_city(mapCtx, x, y, c, r);
+        else if (theme === 'industrial') drawGround_industrial(mapCtx, x, y, c, r);
+        else if (theme === 'lava') drawGround_lava(mapCtx, x, y, c, r);
+        else if (theme === 'mario') drawGround_mario(mapCtx, x, y, c, r);
+        // Draw rock/obstacle on top
+        if (theme === 'forest') drawRock_forest(mapCtx, x, y);
+        else if (theme === 'desert') drawRock_desert(mapCtx, x, y);
+        else if (theme === 'snow') drawRock_snow(mapCtx, x, y);
+        else if (theme === 'city') drawRock_city(mapCtx, x, y, c, r);
+        else if (theme === 'industrial') drawRock_industrial(mapCtx, x, y, c, r);
+        else if (theme === 'lava') drawRock_lava(mapCtx, x, y);
+        else if (theme === 'mario') drawRock_mario(mapCtx, x, y);
+      } else {
+        if (theme === 'forest') { mapCtx.fillStyle = (c + r) % 2 === 0 ? '#2d4a1e' : '#2a451c'; mapCtx.fillRect(x, y, TILE_SIZE, TILE_SIZE); }
+        else if (theme === 'desert') drawGround_desert(mapCtx, x, y, c, r);
+        else if (theme === 'snow') drawGround_snow(mapCtx, x, y, c, r);
+        else if (theme === 'city') drawGround_city(mapCtx, x, y, c, r);
+        else if (theme === 'industrial') drawGround_industrial(mapCtx, x, y, c, r);
+        else if (theme === 'lava') drawGround_lava(mapCtx, x, y, c, r);
+        else if (theme === 'mario') drawGround_mario(mapCtx, x, y, c, r);
       }
     }
-    // 2.5D top-down trees — drawn directly to treeCtx
-    treeCtx.clearRect(0, 0, 992, 736);
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (tiles[r * cols + c] !== TILE_TREE) continue;
-        const x = c * TILE_SIZE + TILE_SIZE / 2;
-        const y = r * TILE_SIZE + TILE_SIZE / 2;
-        const tc = treeCtx;
+  }
 
-        // Drop shadow — offset down-right to give 2.5D elevation feel
-        tc.fillStyle = 'rgba(0,0,0,0.28)';
-        tc.beginPath(); tc.ellipse(x + 5, y + 8, 18, 11, 0, 0, Math.PI * 2); tc.fill();
-
-        // Canopy outer ring (dark rim)
-        tc.fillStyle = '#1c5610'; tc.strokeStyle = '#0e3008'; tc.lineWidth = 1.5;
-        tc.beginPath(); tc.arc(x, y, 18, 0, Math.PI * 2); tc.fill(); tc.stroke();
-
-        // Main canopy
-        tc.fillStyle = '#2e8c1a';
-        tc.beginPath(); tc.arc(x, y - 1, 15, 0, Math.PI * 2); tc.fill();
-
-        // Light side (sun from upper-left)
-        tc.fillStyle = '#42b424';
-        tc.beginPath(); tc.arc(x - 4, y - 5, 11, 0, Math.PI * 2); tc.fill();
-
-        // Highlight dome
-        tc.fillStyle = '#6cd836';
-        tc.beginPath(); tc.arc(x - 6, y - 8, 6, 0, Math.PI * 2); tc.fill();
-
-        // Specular glint
-        tc.fillStyle = 'rgba(210,255,170,0.50)';
-        tc.beginPath(); tc.arc(x - 8, y - 11, 3, 0, Math.PI * 2); tc.fill();
-
-        // Shadow recesses in foliage
-        tc.fillStyle = 'rgba(0,35,0,0.22)';
-        tc.beginPath(); tc.arc(x + 9, y + 4, 7, 0, Math.PI * 2); tc.fill();
-        tc.beginPath(); tc.arc(x - 7, y + 9, 5, 0, Math.PI * 2); tc.fill();
-
-        // Trunk stub (visible at the south base in 2.5D)
-        tc.fillStyle = '#5a3010'; tc.strokeStyle = '#3a1e08'; tc.lineWidth = 1;
-        tc.beginPath(); tc.ellipse(x, y + 16, 3, 2, 0, 0, Math.PI * 2); tc.fill(); tc.stroke();
-      }
+  // Draw trees/obstacles on tree layer
+  treeCtx.clearRect(0, 0, 992, 736);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (tiles[r * cols + c] !== TILE_TREE) continue;
+      const x = c * TILE_SIZE + TILE_SIZE / 2;
+      const y = r * TILE_SIZE + TILE_SIZE / 2;
+      if (theme === 'forest') drawTree_forest(treeCtx, x, y);
+      else if (theme === 'desert') drawTree_desert(treeCtx, x, y);
+      else if (theme === 'snow') drawTree_snow(treeCtx, x, y);
+      else if (theme === 'city') drawTree_city(treeCtx, x, y);
+      else if (theme === 'industrial') drawTree_industrial(treeCtx, x, y);
+      else if (theme === 'lava') drawTree_lava(treeCtx, x, y);
+      else if (theme === 'mario') drawTree_mario(treeCtx, x, y, c, r);
     }
   }
 
@@ -1687,6 +2063,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('join-password-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitPasswordJoin();
     if (e.key === 'Escape') hidePasswordModal();
+  });
+
+  document.getElementById('theme-select').addEventListener('change', (e) => {
+    mapTheme = e.target.value;
+    updateDensityLabels(mapTheme);
+    sendSetup();
   });
 
   document.getElementById('rock-density').addEventListener('input', (e) => {

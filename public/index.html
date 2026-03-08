@@ -66,13 +66,26 @@
           </select>
         </div>
         <div class="host-divider"></div>
+        <div class="form-group" style="margin:0; min-width:130px">
+          <label for="theme-select">Map Theme</label>
+          <select id="theme-select">
+            <option value="forest">🌲 Forest</option>
+            <option value="desert">🌵 Desert</option>
+            <option value="snow">❄️ Snow</option>
+            <option value="city">🏚️ City Ruins</option>
+            <option value="industrial">🏭 Industrial</option>
+            <option value="lava">🌋 Lava</option>
+            <option value="mario">🍄 Super Mario</option>
+          </select>
+        </div>
+        <div class="host-divider"></div>
         <div class="host-density-col">
           <div class="form-group density-group" style="margin:0">
-            <label>Rocks: <span id="rock-density-val">2%</span></label>
+            <label><span id="rock-density-label">Rocks</span>: <span id="rock-density-val">2%</span></label>
             <input type="range" id="rock-density" class="density-slider" min="0" max="10" step="1" value="2">
           </div>
           <div class="form-group density-group" style="margin:0">
-            <label>Trees: <span id="tree-density-val">2%</span></label>
+            <label><span id="tree-density-label">Trees</span>: <span id="tree-density-val">2%</span></label>
             <input type="range" id="tree-density" class="density-slider" min="0" max="20" step="1" value="2">
           </div>
         </div>
