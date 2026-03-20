@@ -27,7 +27,7 @@ const CONFIG = {
   TICK_MS: 50,
   TANK_SPEED: 120,
   TANK_SIZE: 30, TANK_HALF: 15,
-  LASER_SPEED: 300, ROCKET_SPEED: 720,
+  LASER_SPEED: 300, ROCKET_SPEED: 600,
   LASER_COOLDOWN: 300, TRIPLE_COOLDOWN: 400, ROCKET_COOLDOWN: 500,
   RESPAWN_DELAY: 3000, SPAWN_PROTECTION: 2000,
   ARMOR_DURATION: 15000, CLOAK_DURATION: 15000,
@@ -317,6 +317,11 @@ function killPlayer(game, killerId, victim) {
     if (ats) ats.score = killer.score;
   }
 
+  // Track death on victim
+  victim.deaths++;
+  const victimAts = game.allTimeScores.get(victim.id);
+  if (victimAts) victimAts.deaths = victim.deaths;
+
   // Broadcast kill event
   const killerName = killer ? killer.name : 'Unknown';
   broadcast(game, { type: 'kill', killerId, victimId: victim.id, killerName, victimName: victim.name });
@@ -451,7 +456,7 @@ function buildScores(game) {
 
   if (game.mode === 'ffa') {
     const list = [];
-    for (const [id, s] of source) list.push({ id, name: s.name, score: s.score });
+    for (const [id, s] of source) list.push({ id, name: s.name, score: s.score, deaths: s.deaths || 0 });
     return list.sort((a, b) => b.score - a.score);
   }
   // Teams mode
@@ -459,7 +464,7 @@ function buildScores(game) {
   for (const [id, s] of source) {
     if (s.teamIndex >= 0 && s.teamIndex < teamTotals.length) {
       teamTotals[s.teamIndex].total += s.score;
-      teamTotals[s.teamIndex].players.push({ id, name: s.name, score: s.score });
+      teamTotals[s.teamIndex].players.push({ id, name: s.name, score: s.score, deaths: s.deaths || 0 });
     }
   }
   teamTotals.sort((a, b) => b.total - a.total);
@@ -593,7 +598,7 @@ function handleJoin(ws, payload) {
       player.alive = true;
       player.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
       game.players.set(playerId, player);
-      game.allTimeScores.set(playerId, { name: trimmedName, score: 0, teamIndex: player.teamIndex });
+      game.allTimeScores.set(playerId, { name: trimmedName, score: 0, deaths: 0, teamIndex: player.teamIndex });
       wsToPlayer.set(ws, { gameId, playerId });
       ws.send(JSON.stringify({ type: 'game_joined', gameId, playerId }));
       ws.send(JSON.stringify({
@@ -675,6 +680,7 @@ function createPlayer(id, ws, name) {
     cloakUntil: 0,
     armorUntil: 0,
     score: 0,
+    deaths: 0,
     respawnTimer: null,
     disconnectTimer: null,
     isHost: false,
@@ -778,6 +784,7 @@ function handleStartGame(ws, game, player) {
     p.moving = false;
     p.weapon = 'laser';
     p.score = 0;
+    p.deaths = 0;
     p.lastFiredAt = 0;
     p.spawnProtectionUntil = Date.now() + CONFIG.SPAWN_PROTECTION;
     p.cloakUntil = 0;
@@ -793,7 +800,7 @@ function handleStartGame(ws, game, player) {
     } else {
       p.teamIndex = -1;
     }
-    game.allTimeScores.set(p.id, { name: p.name, score: 0, teamIndex: p.teamIndex });
+    game.allTimeScores.set(p.id, { name: p.name, score: 0, deaths: 0, teamIndex: p.teamIndex });
   }
 
   const mapPayload = { tiles: Array.from(game.map.tiles), cols: game.map.cols, rows: game.map.rows };
@@ -852,6 +859,7 @@ function handlePlayAgain(ws, game, player) {
   for (const [, p] of game.players) {
     p.alive = false;
     p.score = 0;
+    p.deaths = 0;
     p.weapon = 'laser';
     p.teamIndex = -1;
   }
