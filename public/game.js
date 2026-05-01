@@ -1835,7 +1835,8 @@ function updateScorePanel(scores) {
       name.textContent = s.name;
       const pts = document.createElement('span');
       pts.className = 'panel-score-pts';
-      pts.textContent = s.score;
+      pts.textContent = s.score + '/' + (s.deaths || 0);
+      pts.style.color = kdPanelColor(s.score, s.deaths || 0);
       row.append(dot, name, pts);
       body.appendChild(row);
     }
@@ -1865,7 +1866,8 @@ function updateScorePanel(scores) {
         name.textContent = p.name;
         const pts = document.createElement('span');
         pts.className = 'panel-score-pts';
-        pts.textContent = p.score;
+        pts.textContent = p.score + '/' + (p.deaths || 0);
+        pts.style.color = kdPanelColor(p.score, p.deaths || 0);
         row.append(name, pts);
         body.appendChild(row);
       }
@@ -1916,6 +1918,28 @@ function stopInputLoop() {
 // ─── Ended Screen ─────────────────────────────────────────────────────────
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+function pctClass(pct) {
+  if (pct >= 100) return 'score-pct-green';
+  if (pct >= 75)  return 'score-pct-yellow';
+  if (pct >= 50)  return 'score-pct-orange';
+  return 'score-pct-red';
+}
+
+// Color for kills/deaths display: green on perfect run, blue otherwise
+function kdColor(score, deaths) {
+  return (deaths === 0 && score > 0) ? 'var(--success)' : 'var(--accent2)';
+}
+
+// Color for live panel pts: percentage-based
+function kdPanelColor(score, deaths) {
+  if (deaths === 0 && score > 0) return 'var(--success)';
+  const pct = Math.round(score / Math.max(1, deaths) * 100);
+  if (pct >= 100) return 'var(--success)';
+  if (pct >= 75)  return '#ffd040';
+  if (pct >= 50)  return '#ff8040';
+  return '#e94560';
+}
+
 function showEndedScreen(scores) {
   stopConfetti();
   const container = document.getElementById('final-scores');
@@ -1935,7 +1959,8 @@ function showEndedScreen(scores) {
       const rankEl = i < 3
         ? `<span class="score-rank-medal">${MEDALS[i]}</span>`
         : `<span class="score-rank">${i + 1}.</span>`;
-      row.innerHTML = `${rankEl}<span class="score-name">${escHtml(s.name)}</span><span class="score-pts">${s.score} pts</span>`;
+      const pct = Math.round(s.score / Math.max(1, s.deaths || 0) * 100);
+      row.innerHTML = `${rankEl}<span class="score-name">${escHtml(s.name)}</span><span class="score-pts" style="color:${kdColor(s.score,s.deaths||0)}">${s.score}/${s.deaths||0}</span><span class="score-pct ${pctClass(pct)}">${pct}%</span>`;
       container.appendChild(row);
     }
   } else {
@@ -1958,7 +1983,8 @@ function showEndedScreen(scores) {
       for (const p of (team.players || [])) {
         const row = document.createElement('div');
         row.className = 'score-row score-indent';
-        row.innerHTML = `<span class="score-name">${escHtml(p.name)}</span><span class="score-pts">${p.score} pts</span>`;
+        const pct = Math.round(p.score / Math.max(1, p.deaths || 0) * 100);
+        row.innerHTML = `<span class="score-name">${escHtml(p.name)}</span><span class="score-pts" style="color:${kdColor(p.score,p.deaths||0)}">${p.score}/${p.deaths||0}</span><span class="score-pct ${pctClass(pct)}">${pct}%</span>`;
         container.appendChild(row);
       }
     }
@@ -2110,9 +2136,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm('Exit the game?')) {
       currentPhase = 'ended'; // prevent ws.onclose from triggering reconnect
       stopRenderLoop(); stopInputLoop(); cleanupRTC(); stopBattleMusic();
+      // Show Game Over panel with current scores; other players keep playing
+      showEndedScreen(renderScores);
+      document.getElementById('play-again-btn').style.display = 'none';
+      showScreen('ended');
       if (ws) { ws.close(); ws = null; wsOpen = false; }
-      document.getElementById('name-input').value = myName;
-      showScreen('home');
     }
   });
 
