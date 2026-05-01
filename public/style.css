@@ -44,33 +44,12 @@ body {
 
 /* ── Typography ───────────────────────────────────────────────────────── */
 h1.logo {
-  font-size: 3.2rem;
-  font-weight: 900;
-  letter-spacing: 10px;
-  color: #ff5500;
+  font-size: 2.8rem;
+  letter-spacing: 6px;
+  color: var(--accent);
   text-align: center;
-  margin-bottom: 0.2rem;
-  -webkit-text-stroke: 1.5px rgba(80, 10, 0, 0.7);
-  text-shadow:
-    0 0 6px rgba(255, 220, 0, 0.9),
-    0 0 16px rgba(255, 100, 0, 0.85),
-    0 0 36px rgba(200, 30, 0, 0.6),
-    3px 3px 0 #1a0000,
-    -1px -1px 0 #1a0000;
-}
-
-.logo-wrap {
   margin-bottom: 0.25rem;
-}
-
-.logo-wrap h1.logo {
-  margin-bottom: 0;
-}
-
-#logo-tank-canvas {
-  display: block;
-  width: 100%;
-  height: 44px;
+  text-shadow: 0 0 20px rgba(233,69,96,0.5);
 }
 
 .tagline {
@@ -335,7 +314,7 @@ select option { background: var(--bg-card); }
 .panel-score-row.is-me { background: rgba(255,255,255,0.06); }
 .panel-score-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .panel-score-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-.panel-score-pts { color: var(--accent2); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+.panel-score-pts { color: var(--accent2); font-weight: 700; font-size: 0.8rem; }
 .panel-team-header {
   font-size: 0.75rem;
   font-weight: 700;
@@ -507,12 +486,7 @@ kbd.kbd-arrows { font-size: 0.9rem; letter-spacing: 2px; }
 .score-row:last-child { border-bottom: none; }
 .score-rank { width: 1.5rem; color: var(--muted); font-size: 0.8rem; text-align: right; }
 .score-name { flex: 1; }
-.score-pts { color: var(--accent2); font-weight: 700; min-width: 3rem; text-align: right; white-space: nowrap; }
-.score-pct { font-weight: 700; min-width: 3rem; text-align: right; font-size: 0.85rem; }
-.score-pct-green  { color: var(--success); }
-.score-pct-yellow { color: #ffd040; }
-.score-pct-orange { color: #ff8040; }
-.score-pct-red    { color: #e94560; }
+.score-pts { color: var(--accent2); font-weight: 700; min-width: 2.5rem; text-align: right; }
 .score-team-header {
   background: var(--bg);
   border-radius: var(--radius);
