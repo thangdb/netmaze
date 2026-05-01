@@ -577,7 +577,6 @@ function handleServerMessage(msg) {
       renderProjectiles = [];
       renderPowerups = [];
       killFeed = [];
-      renderKillFeed();
       prevProjectiles = [];
       myWasAlive = true; // start alive — don't play spawn sound on game start
       initGameScreen();
@@ -618,7 +617,6 @@ function handleServerMessage(msg) {
       const text = `${msg.killerName} eliminated ${msg.victimName}`;
       killFeed.push({ text, expiresAt: Date.now() + 4000 });
       if (killFeed.length > 5) killFeed.shift();
-      renderKillFeed();
       break;
     }
 
@@ -1814,6 +1812,8 @@ function renderFrame() {
   ctx.globalAlpha = 0.75;
   ctx.drawImage(treeCanvas, 0, 0);
   ctx.restore();
+
+  renderKillFeed(now);
 }
 
 function updateScorePanel(scores) {
@@ -1876,10 +1876,8 @@ function updateScorePanel(scores) {
 
 }
 
-let killFeedExpireTimer = null;
-
-function renderKillFeed() {
-  const now = Date.now();
+function renderKillFeed(now) {
+  // Clean expired
   killFeed = killFeed.filter(k => k.expiresAt > now);
   const container = document.getElementById('kill-feed');
   container.innerHTML = '';
@@ -1888,12 +1886,6 @@ function renderKillFeed() {
     div.className = 'kill-entry';
     div.textContent = k.text;
     container.appendChild(div);
-  }
-  // Schedule a re-render for when the oldest visible entry expires
-  if (killFeedExpireTimer) clearTimeout(killFeedExpireTimer);
-  if (killFeed.length > 0) {
-    const next = Math.min(...killFeed.map(k => k.expiresAt)) - Date.now();
-    killFeedExpireTimer = setTimeout(renderKillFeed, Math.max(next, 0));
   }
 }
 
